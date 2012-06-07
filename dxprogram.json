@@ -1,0 +1,18 @@
+{
+  "name": "deduplicate_reads",
+  "title": "Picard Tools Mark Duplicates",
+  "summary": "Marks duplicate reads, retaining only the highest quality read",  
+  "dxapi": "1.03rc",
+  "version": "0.1",
+  "inputs": [
+    {"name": "mappings", "class": "gtable"},
+    {"name": "discard_unmapped", "class":"boolean", "default":true},
+    {"name": "discard_duplicates", "class":"boolean", "default": true},
+    {"name": "mark_duplicates_chunks", "class":"int", "default":5}
+  ],
+  "outputs": [
+  {"name": "dedup", "class": "gtable"}
+  ],
+  "run": 
+    {"file": "runDeduplicate.py", "interpreter": "python2.7", "execDepends": [{"name": "openjdk-6-jre"}]}
+}
