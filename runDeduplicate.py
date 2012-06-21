@@ -116,7 +116,7 @@ def mapMarkDuplicates():
                 
 def reduceMarkDuplicates():
     t = dxpy.open_dxgtable(job['input']['dedupTableId'])
-    t.close(block=True)
+    t.close()
     print "Closing Table"
     job['output']['dedup'] = dxpy.dxlink(t.get_id())
 
