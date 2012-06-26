@@ -43,9 +43,9 @@ class TestMyApp(unittest.TestCase):
     def test_full_pipeline(self):
         #mappings = {"$dnanexus_link":mappingsId}
         #print {'mappings':mappings}
-        job = self.program.run({'mappings':{"$dnanexus_link":"gtable-9ykzP5Q0000GY9B3jkb0001K"}})            
+        job = self.program.run({'mappings':{"$dnanexus_link":"gtable-9yjpgx00000FvFXPg98Q0003"}, 'known_dbsnp':[{"$dnanexus_link":"gtable-9ykJkz800009pbgJgV8Q003G"}], 'known_indels':[{"$dnanexus_link":"gtable-9ykJx3Q00008k68jj58Q006V"}, {"$dnanexus_link":"gtable-9ykK16j00008k68jj58Q006j"}]})            
         job.wait_on_done()
-        print "Deduplication output:"
+        print "Recalibration output:"
         print json.dumps(job.describe()["output"])
 
 if __name__ == '__main__':

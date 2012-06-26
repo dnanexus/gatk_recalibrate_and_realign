@@ -1,7 +1,6 @@
 {
-  "name": "gatk_recalibrate",
-  "title": "GATK Recalibration and Realignment",
-  "summary": "Performs quality recalibration recommended in GATK best practices in variant detection",  
+  "name": "GATK Recalibration and Realignment",
+  "subtitle": "Performs quality recalibration recommended in GATK best practices in variant detection",
   "dxapi": "1.03rc",
   "version": "0.1",
   "inputs": [
