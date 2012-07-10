@@ -4,7 +4,7 @@
   "summary": "Performs quality recalibration recommended in GATK best practices in variant detection",  
   "dxapi": "1.03rc",
   "version": "0.1",
-  "inputs": [
+  "inputSpec": [
     {"name": "mappings", "class": "gtable"},
     {"name": "known_dbsnp", "class": "array:gtable"},
     {"name": "known_indels", "class": "array:gtable"},
@@ -13,9 +13,9 @@
     {"name": "covariate_read_threshold", "class":"int", "default":50000000},
     {"name": "mark_duplicates_chunks", "class":"int", "default":5}
   ],
-  "outputs": [
+  "outputSpec": [
   {"name": "ok", "class": "boolean"}
   ],
-  "run": 
+  "runSpec": 
     {"file": "runRecalibrate.py", "interpreter": "python2.7", "execDepends": [{"name": "openjdk-6-jre"}]}
 }
