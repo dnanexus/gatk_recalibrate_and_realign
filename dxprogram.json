@@ -17,5 +17,5 @@
   {"name": "ok", "class": "boolean"}
   ],
   "runSpec": 
-    {"file": "runRecalibrate.py", "interpreter": "python2.7", "execDepends": [{"name": "openjdk-6-jre"}]}
+    {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre"}]}
 }
