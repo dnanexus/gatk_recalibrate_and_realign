@@ -11,7 +11,7 @@ from optparse import OptionParser
 
 def makeInputsBwa():
     try:
-        contigset_importer = dxpy.DXProgram(dxpy.find_data_objects(classname="applet", properties={"name": "fasta_contigset_importer"}).next()['id'])
+        contigset_importer = dxpy.DXApplet(dxpy.find_data_objects(classname="applet", properties={"name": "fasta_contigset_importer"}).next()['id'])
 
     except StopIteration:
         raise Exception("fasta_contigset_importer or Letter Space FASTQ importer not found, please upload them")
@@ -32,7 +32,7 @@ class TestMyApp(unittest.TestCase):
   
         bundled_resources = dxpy.program_builder.upload_resources(src_dir)
         program_id = dxpy.program_builder.upload_program(src_dir, bundled_resources, overwrite=True)
-        cls.program = dxpy.DXProgram(program_id)
+        cls.program = dxpy.DXApplet(program_id)
 
     def setUp(self):
         pass
