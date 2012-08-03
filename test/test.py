@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os, sys, unittest, json, subprocess
 
-import dxpy, dxpy.program_builder
+import dxpy, dxpy.app_builder
 from dxpy.exceptions import *
 
 src_dir = os.path.join(os.path.dirname(__file__), "..")
@@ -30,8 +30,8 @@ class TestMyApp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
   
-        bundled_resources = dxpy.program_builder.upload_resources(src_dir)
-        program_id = dxpy.program_builder.upload_program(src_dir, bundled_resources, overwrite=True)
+        bundled_resources = dxpy.app_builder.upload_resources(src_dir)
+        program_id = dxpy.app_builder.upload_program(src_dir, bundled_resources, overwrite=True)
         cls.program = dxpy.DXApplet(program_id)
 
     def setUp(self):
