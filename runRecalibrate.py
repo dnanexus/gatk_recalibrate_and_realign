@@ -113,10 +113,10 @@ def mapMarkDuplicates():
     print job['input']['interval']
     
     for i in range(len(job['input']['known_indels'])):
-        subprocess.check_call("dx_simplevarToVcf --table_id %s --output indels%d.vcf --region_index_offset -1 %s" % (job['input']['known_indels'][i], i, job['input']['interval']), shell=True)
+        subprocess.check_call("dx-simplevar-to-vcf --table_id %s --output indels%d.vcf --region_index_offset -1 %s" % (job['input']['known_indels'][i], i, job['input']['interval']), shell=True)
 
     print "Converting Table to SAM"
-    subprocess.check_call("dx_mappingsTableToSam --table_id %s --output input.sam --region_index_offset -1 %s" % (job['input']['mappings_table_id'], job['input']['interval']), shell=True)
+    subprocess.check_call("dx-mappings-to-sam --table_id %s --output input.sam --region_index_offset -1 %s" % (job['input']['mappings_table_id'], job['input']['interval']), shell=True)
     subprocess.call("java -Xmx4g net.sf.picard.sam.AddOrReplaceReadGroups I=input.bam O=input.sorted.sam RGPL=illumina RGID=1 RGSM=1 RGLB=1 RGPU=1 SORT_ORDER=coordinate VALIDATION_STRINGENCY=LENIENT", shell=True)
     subprocess.call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=input.sorted.sam O=dedup.sam REMOVE_DUPLICATES=true METRICS_FILE=metrics.txt ASSUME_SORTED=true", shell=True)
     metricsFile = open("metrics.txt", 'r')
@@ -139,7 +139,7 @@ def mapMarkDuplicates():
     ##Run Indel Realigner
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T IndelRealigner -targetIntervals indels.intervals -R ref.fa -I recal.bam -o realign.bam"
     for i in range(len(job['input']['known_indels'])):
-        subprocess.check_call("dx_simplevarToVcf --table_id %s --output indels%d.vcf" % (job['input']['known_indels'][i], i), shell=True)
+        subprocess.check_call("dx-simplevar-to-vcf --table_id %s --output indels%d.vcf" % (job['input']['known_indels'][i], i), shell=True)
         command += " -known indels%d.vcf" % (i)
     subprocess.check_call(command, shell=True)
     subprocess.call("java -Xmx4g net.sf.picard.sam.SamFormatConverter INPUT=realign.bam OUTPUT=realign.sam", shell=True)
@@ -157,7 +157,7 @@ def countCovariates():
     
  
     for i in range(len(job['input']['known_dbsnp'])):
-        subprocess.check_call("dx_simplevarToVcf --table_id %s --output dbsnp%d.vcf" % (job['input']['known_dbsnp'][i], i), shell=True)
+        subprocess.check_call("dx-simplevar-to-vcf --table_id %s --output dbsnp%d.vcf" % (job['input']['known_dbsnp'][i], i), shell=True)
         
     
     
@@ -168,7 +168,7 @@ def countCovariates():
             break
         elif job['input']['covariate_mappings_table_id'] == True:
             ##Do count covariate stuff
-            subprocess.check_call("dx_mappingsTableToSam --table_id %s --output input.sam" % (job['input']['covariate_mappings_table_id']), shell=True)
+            subprocess.check_call("dx-mappings-to-sam --table_id %s --output input.sam" % (job['input']['covariate_mappings_table_id']), shell=True)
             subprocess.call("java -Xmx4g net.sf.picard.sam.SamFormatConverter INPUT=input.sam OUTPUT=input.bam", shell=True)
             subprocess.call("java -Xmx4g net.sf.picard.sam.AddOrReplaceReadGroups I=input.bam O=input.rg.bam RGPL=illumina RGID=1 RGSM=1 RGLB=1 RGPU=1", shell=True)
             command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -I input.rg.bam -recalFile recal.csv -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate --standard_covs"
@@ -189,7 +189,7 @@ def realignerTargetCreator():
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T RealignerTargetCreator -R ref.fa -o indels.intervals"
     
     for i in range(len(job['input']['known_indels'])):
-        subprocess.check_call("dx_simplevarToVcf --table_id %s --output indels%d.vcf" % (job['input']['known_indels'][i], i), shell=True)
+        subprocess.check_call("dx-simplevar-to-vcf --table_id %s --output indels%d.vcf" % (job['input']['known_indels'][i], i), shell=True)
         command += " --known indels%d.vcf" % (i)
     subprocess.check_call(command, shell=True)
     
