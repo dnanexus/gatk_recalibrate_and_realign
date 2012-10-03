@@ -1,0 +1,34 @@
+{
+  "name": "recalibrate_and_realign",
+  "title": "GATK Indel Realignment and Quality Recalibration",
+  "summary": "Performs the Broad Institute's best practices in SNP and Indel calling v3.",
+  "description": "This app applies a number of recalculations to a mappings object in order to improve the quality of variant calls. This follows the Broad Institutes recommendations for best practices in variant calling. Mappings are deduplicated, realigned around sites of known indels, and their quality is recalibrated by looking at covariance in quality metrics with frequently observed variation in the genome.",
+  "dxapi": "1.0.0",
+  "inputSpec": [
+    {"name": "mappings", "class": "gtable", "label":"Mappings Table", "help":"The mapped reads which will be deduplicated", "type": "LetterMappings"},
+    {"name": "reference", "class": "record", "label":"Reference Genome", "help":"The reference genome used to align the mappings", "type": "ContigSet"},
+    {"name": "output name", "class": "string", "label":"Output Name", "help":"The name of the deduplicated table", "optional": true},
+    {"name": "discard_unmapped", "class": "boolean", "label":"Discard Unmapped", "help":"If selected, those reads which were not mapped to the genome will not be written to the deduplicated table", "default": true},
+    {"name": "discard_duplicates", "class": "boolean", "label":"Discard Duplicates", "help":"If selected, those reads that would be marked as duplicate will instead not be writen to the deduplicated table", "default": true},
+    {"name": "dbsnp", "class": "file", "label":"dbsnp", "help":"The dbsnp database in tar.gz format"},
+    {"name": "known_indels", "class": "array:file", "label":"Known Indels", "help":"Variant objects containing known indels to use in the process of realigning around the sites of known indels", "optional":true}
+  
+  ],
+  "outputSpec": [
+    {"name": "recalibrated_bam", "class": "file"}
+  ],
+  "runSpec":
+    {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre"}, {"name": "dx-toolkit",
+                     "package_manager": "git",
+                     "url": "git@github.com:dnanexus/dx-toolkit.git",
+                     "tag": "master",
+                     "build_commands": "make install DESTDIR=/ PREFIX=/opt/dnanexus"}]},
+  
+  
+    "resources": [],
+    "version": "0.0.50",
+    "categories": [
+        "Quality filter"
+    ],
+  "access": {"network":["github.com"]}
+}
