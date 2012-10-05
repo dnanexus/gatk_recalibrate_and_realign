@@ -15,18 +15,12 @@
   
   ],
   "outputSpec": [
-    {"name": "recalibrated_bam", "class": "file"}
+    {"name": "recalibrated_mappings", "class": "gtable", "type": {"$and": ["LetterMappings", "Mappings", "gri"]}}
   ],
   "runSpec":
-    {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre"}, {"name": "dx-toolkit",
-                     "package_manager": "git",
-                     "url": "git@github.com:dnanexus/dx-toolkit.git",
-                     "tag": "master",
-                     "build_commands": "make install DESTDIR=/ PREFIX=/opt/dnanexus"}]},
-  
-  
+    {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre"}, {"name":"tabix"}]},
     "resources": [],
-    "version": "0.0.50",
+    "version": "0.0.69",
     "categories": [
         "Quality filter"
     ],

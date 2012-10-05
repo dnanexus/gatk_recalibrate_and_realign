@@ -18,6 +18,10 @@ def main():
     os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/MergeSamFiles.jar'
 
     mappingsTable = dxpy.open_dxgtable(job['input']['mappings']['$dnanexus_link'])
+    recalibratedTable = createNewTable(mappingsTable)
+    print "Mappings Table: " + mappingsTable.get_id()
+    print "Recalibrated Table: " + recalibratedTable.get_id()
+    
     mappingSchema = mappingsTable.describe()['columns']
 
     #chunks = int(mappingsTable.describe()['length']/100000000)+1
@@ -32,10 +36,10 @@ def main():
     #Split the genome into chunks to parallelize
     commandList = splitGenomeLengthChromosome(originalContigSet, chunks)
 
-    reduceInput = {}
+    
     excludeInterchromosome = (chunks > 1)
     markDuplicatesJobs = []
-    reduceInput = {}
+    
     
     #This runs the Picard Mark Duplicates program to deduplicate the reads
     for i in range(len(commandList)):
@@ -71,7 +75,8 @@ def main():
     else:
         interchromosomeJob = ''
     
-    #knownIndels = ['indels/Mills_and_1000G_gold_standard.indels.b37.vcf.gz', 'indels/1000G_phase1.indels.b37.vcf.gz']
+    reduceInput = {}
+    realignJobs = []
     for i in range(len(commandList)):
         mapRealignInput = {
             'region_bam' : { 'job': markDuplicatesJobs[i], 'field': 'bam'},
@@ -83,17 +88,31 @@ def main():
             'job_number': i,
             }
         realignJobId = dxpy.new_dxjob(fn_input=mapRealignInput, fn_name="mapRealigner").get_id()
-        reduceInput["realignJob" + str(chunks)] = {'job': realignJobId, 'field': 'id'}
+        realignJobs.append(realignJobId)
+        reduceInput["realignJob" + str(i)] = {'job': realignJobId, 'field': 'mapping_locations'}
         #if job['input']['discard_unmapped'] == False:
             #writeUnmappedReads(mappingsTable, dedupTable)
 
-    #reduceInput['dedupTableId'] = dedupTable.get_id()
-    reduceJob = dxpy.new_dxjob(fn_input=reduceInput, fn_name="reduceRealigner")
-    reduceJobId = reduceJob.get_id()
-    job['output'] = {'recalibrated_bam': {'job': reduceJobId, 'field': 'recalibrated_bam'}}
+    reduceJobId = dxpy.new_dxjob(fn_input=reduceInput, fn_name="reduceRealigner").get_id()
+    
+    reduceImportInput = {"recalibrated_table": recalibratedTable}
+    for i in range(len(commandList)):
+        mapImportInput = {
+            'mapping_locations': {'job': reduceJobId, 'field': 'mapping_locations'},
+            'recalibrated_bam' : {'job': realignJobs[i], 'field': 'recalibrated_bam'},
+            'region': commandList[i],
+            'original_table': mappingsTable.get_id(),
+            'recalibrated_table': recalibratedTable.get_id(),
+            'job_number': i
+        }
+        print mapImportInput
+        reduceImportJobId = dxpy.new_dxjob(fn_input=mapImportInput, fn_name="mapImport").get_id()
+        reduceImportInput["importJob"+str(i)] = {'job': reduceImportJobId, 'field':'ok'}
+    reduceJobId = dxpy.new_dxjob(fn_input=reduceImportInput, fn_name="reduceImport").get_id()
+    job['output'] = {'recalibrated_mappings': {'job': reduceJobId, 'field': 'recalibrated_mappings'}}
 
 def mapRealigner():
-    os.environ['CLASSPATH'] = '/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar'
+    os.environ['CLASSPATH'] = '/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
     fileNum = 0
     print job
     region = job['input']['region']
@@ -144,45 +163,87 @@ def mapRealigner():
         
         #Download dbsnp
         dxpy.download_dxfile(job['input']['dbsnp'], "dbsnp.vcf.gz")
-        
+        subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
+        #subprocess.check_call("tabix -f -p vcf dbsnp.vcf.gz", shell=True)        
+
         #Count Covariates
-        command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -recalFile recalibration.csv -knownSites dbSNP.vcf.gz -I realigned.bam -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariante --standard_covs"
+        command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -recalFile recalibration.csv -knownSites dbsnp.vcf -I realigned.bam -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate --standard_covs"
+        command += job['input']['region']
         command += " --num_threads " + str(cpu_count())
         print command
         subprocess.check_call(command, shell=True)
         
         #Table Recalibration
         command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T TableRecalibration -R ref.fa -recalFile recalibration.csv -I realigned.bam -o recalibrated.bam"
-        command += " --num_threads " + str(cpu_count())
+        command += job['input']['region']
         print command
         subprocess.check_call(command, shell=True)
         
         subprocess.check_call("samtools view -h -o recalibrated.sam recalibrated.bam", shell=True)
         
-        result = dxpy.upload_local_file("recalibrated.sam")
-        job['output'] = {'recalibrated_bam': [dxpy.dxlink(result.get_id())]}
+        regionChromosomes = {}
+        for x in re.findall("-L ([^:]*):\d+-\d+", job['input']['region']):
+            regionChromosomes[x] = True
+        
+        
+        mateFile = open("ids.txt", 'w')
+        for line in open("recalibrated.sam", 'r'):
+            if line[0] != "@":
+                tabSplit = line.split("\t")
+                chromosome = tabSplit[2]
+                if regionChromosomes.get(chromosome) != None:
+                    mappingId = tabSplit[0]
+                    mappingLo = int(tabSplit[3])-1
+                    alignLength = 0
+                    cigar = re.split('(\d+)', tabSplit[5])
+                    for p in range(len(cigar)):
+                        c = cigar[p]
+                        if c == 'M' or c == 'D' or c == 'N' or c == 'X' or c == 'P' or c == '=':
+                            alignLength += int(cigar[p-1])
+                    mappingHi = mappingLo + alignLength
+                    mateFile.write(mappingId+"\t"+str(mappingLo)+"\t"+str(mappingHi))
+        subprocess.check_call("gzip ids.txt", shell=True)
+        
+        result = dxpy.upload_local_file("recalibrated.bam")
+        mates = dxpy.upload_local_file("ids.txt.gz")
+        job['output']['recalibrated_bam'] = dxpy.dxlink(result.get_id())
+        job['output']['mapping_locations'] = dxpy.dxlink(mates.get_id())
     else:
-        job['output'] = {'recalibrated_bam': []}
+        job['output']['recalibrated_bam'] = ''
+        job['output']['mapping_locations'] = ''
+        
+def mapImport():
+    
+    mappingLocation = dxpy.download_dxfile(job['input']['mapping_locations'], "locations.txt.gz")
+    subprocess.check_call("gzip -d locations.txt.gz", shell=True)
+    
+    recalibratedBam = dxpy.download_dxfile(job['input']['recalibrated_bam'], "recalibrated.bam")
+    subprocess.check_call("samtools view -h -out recalibrated.sam recalibrated.bam")
+    
+    originalTable = dxpy.DXGTable(job['input']['original_table'])
+    recalibratedTable = dxpy.DXGTable(job['input']['recalibrated_table'])
+    
+    
+    
+    return 1
+
 
 def reduceRealigner():
-    os.environ['CLASSPATH'] = '/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/MergeSamFiles.jar'
-    fileNum = 0
-    command = "java -Xmx4g net.sf.picard.sam.MergeSamFiles OUTPUT=input.sorted.bam SORT_ORDER=coordinate USE_THREADING=true"
-    print job
-    originalInput = dxpy.DXJob(job['id']).describe()['originalInput']
-    print originalInput
-    for k, v in originalInput.iteritems():
-        mapJob = dxpy.DXJob(v['job'])
-        fileList = mapJob.describe()['output']['recalibrated_bam']
-        if len(fileList) > 0:
-            fileName = fileList[0]
-            dxpy.download_dxfile(fileName, "sam"+str(fileNum)+".bam")
-            command += " INPUT=sam"+str(fileNum)+".bam"
-            fileNum += 1
-    
-    subprocess.check_call(command, shell=True)
-    result = dxpy.upload_local_file("input.sorted.bam")
-    job['output'] = {'recalibrated_bam': dxpy.dxlink(result.get_id())}
+    print job['input']
+    i = 0
+    outputFile = open("ids.txt", 'w')
+    outputFile.close()
+    while 1:
+        try:
+            dxpy.download_dxfile(job['input']['realignJob'+str(i)], "job.txt.gz")
+            subprocess.check_call("gzip -d job.txt.gz", shell=True)
+            subprocess.check_call("cat ids.txt job.txt > result.txt", shell=True)
+            subprocess.check_call("mv result.txt ids.txt", shell=True)
+        except:
+            break
+    subprocess.check_call("gzip ids.txt", shell=True)
+    result = dxpy.upload_local_file("ids.txt.gz")
+    job['output'] = {'mapping_locations' : dxpy.dxlink(result.get_id())}
     
     #t = dxpy.open_dxgtable(job['input']['dedupTableId'])
     #print "Closing Table"
@@ -217,7 +278,9 @@ def mapMarkDuplicates():
 
     print "Converting Table to SAM"
     if job['input']['exclude_interchromosomal'] == False and job['input']['include_interchromosomal'] == False:
-        command = "dx-mappings-to-sam %s --output input.sam --id_as_name" % (job['input']['mappings_table_id'])
+        #Commented to wait for changes to dx-toolkit to percolate through
+        #command = "dx-mappings-to-sam %s --output input.sam --id_as_name" % (job['input']['mappings_table_id'])
+        command = "dx_mappings_to_sam2 %s --output input.sam --id_as_name" % (job['input']['mappings_table_id'])
         if job['input']['discard_unmapped']:
             command += " --discard_unmapped"
         print command
@@ -225,13 +288,13 @@ def mapMarkDuplicates():
         subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate", shell=True)
         subprocess.check_call("mv input.sorted.sam input.sam", shell=True)
     elif job['input']['exclude_interchromosomal']:
-        command = "dx-mappings-to-sam %s --output input.sam --region_index_offset -1 --id_as_name --region_file regions.txt --no_interchromosomal_mate" % (job['input']['mappings_table_id'])
+        command = "dx_mappings_to_sam2 %s --output input.sam --region_index_offset -1 --id_as_name --region_file regions.txt --no_interchromosomal_mate" % (job['input']['mappings_table_id'])
         print command
         subprocess.check_call(command, shell=True)
         subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate", shell=True)
         subprocess.check_call("mv input.sorted.sam input.sam", shell=True)
     elif job['input']['include_interchromosomal']:
-        command = "dx-mappings-to-sam %s --output input.sam --id_as_name --only_interchromosomal_mate" % (job['input']['mappings_table_id'])
+        command = "dx_mappings_to_sam2 %s --output input.sam --id_as_name --only_interchromosomal_mate" % (job['input']['mappings_table_id'])
         print command
         subprocess.check_call(command, shell=True)
         subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate", shell=True)
@@ -248,11 +311,15 @@ def mapMarkDuplicates():
                 command = "samtools view -b dedup.bam " + job['input']['interval'][i].replace(" -L ", " ") + " > chromosome.bam"
                 print command
                 subprocess.check_call(command, shell=True)
-                outputFiles.append(dxpy.upload_local_file("chromosome.bam").get_id())
+                subprocess.check_call("java net.sf.picard.sam.AddOrReplaceReadGroups INPUT=chromosome.bam OUTPUT=chromosome.rg.bam RGID="+str(i)+" RGLB=library RGPL=illumina RGPU="+str(i)+" SM="+str(i), shell=True)
+                outputFiles.append(dxpy.upload_local_file("chromosome.rg.bam").get_id())
             job['output']['bam'] = outputFiles
         else:
-            outputFile = dxpy.upload_local_file("dedup.bam")
+            subprocess.check_call("java net.sf.picard.sam.AddOrReplaceReadGroups INPUT=dedup.bam OUTPUT=dedup.rg.bam RGID="+str(job['input']['job_number'])+" RGLB=library RGPL=illumina RGPU="+str(job['input']['job_number'])+" SM="+str(job['input']['job_number']), shell=True)
+            outputFile = dxpy.upload_local_file("dedup.rg.bam")
+            origFile = dxpy.upload_local_file("input.sam")
             job['output']['bam'] = [outputFile.get_id()]
+            job['output']['orig'] = origFile.get_id()
     else:
         job['output']['bam'] = []
 
@@ -313,87 +380,21 @@ def checkSamContainsRead(samFileName):
     return False
 
 
-def buildGatkCommand(job):
+def createNewTable(oldTable):
     
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T UnifiedGenotyper -R ref.fa -I input.sorted.bam -o output.vcf "
-    if job['input']['output_mode'] != "EMIT_VARIANTS_ONLY":
-        command += " -out_mode " + (job['input']['output_mode'])
-    if job['input']['call_confidence'] != 30.0:
-        command += " -stand_call_conf " +str(job['input']['call_confidence'])
-    if job['input']['emit_confidence'] != 30.0:
-        command += " -stand_emit_conf " +str(job['input']['emit_confidence'])
-    if job['input']['pcr_error_rate'] != 0.0001:
-        command += " -pcr_error " +str(job['input']['pcr_error_rate'])
-    if job['input']['heterozygosity'] != 0.001:
-        command += " -hets " + str(job['input']['heterozygosity'])
-    if job['input']['indel_heterozygosity'] != 0.000125:
-        command += " -indelHeterozygosity " + str(job['input']['indel_heterozygosity'])
-    if job['input']['genotype_likelihood_model'] != "BOTH":
-        command += " -glm " + job['input']['genotype_likelihood_model']
-    if job['input']['minimum_base_quality'] != 17:
-        command += " -mbq " + str(job['input']['minimum_base_quality'])
-    if job['input']['max_alternate_alleles'] != 3:
-        command += " -maxAlleles " + str(job['input']['max_alternate_alleles'])
-    if job['input']['max_deletion_fraction'] != 0.05:
-        command += " -deletions " + str(job['input']['max_deletion_fraction'])
-    if job['input']['min_indel_count'] != 5:
-        command += " -minIndelCnt " + str(job['input']['min_indel_count'])
-    if job['input']['non_reference_probability_model'] != "EXACT":
-        if job['input']['non_reference_probability_model'] != "GRID_SEARCH":
-            raise AppError("Option \"Probability Model\" must be either \"EXACT\" or \"GRID_SEARCH\". Found " + job['input']['non_reference_probability_model'] + " instead")
-        command += " -pnrm " + str(job['input']['non_reference_probability_model'])
+    columns = oldTable.describe()['columns']
+    indices = oldTable.describe()['indices']
+    tags = oldTable.describe()['tags']
+    name = oldTable.describe()['name']
+    details = oldTable.get_details()
     
-    command += " --num_threads " + str(cpu_count())
-    command += " -L regions.interval_list"
-
-    if job['input']['downsample_to_coverage'] != 250:
-        command += " -dcov " + str(job['input']['downsample_to_coverage'])
-    elif job['input']['downsample_to_fraction'] != 1.0:
-        command += " -dfrac " + str(job['input']['downsample_to_fraction'])
-
-    if job['input']['nondeterministic']:
-        command += " -ndrs "
-
-    if job['input']['calculate_BAQ'] != "OFF":
-        if job['input']['calculate_BAQ'] != "CALCULATE_AS_NECESSARY" and job['input']['calculate_BAQ'] != "RECALCULATE":
-            raise AppError("Option \"Calculate BAQ\" must be either \"OFF\" or or \"CALCULATE_AS_NECESSARY\" \"RECALCULATE\". Found " + job['input']['calculate_BAQ'] + " instead")
-        command += "-baq " + job['input']['calculate_BAQ']
-        if job['input']['BAQ_gap_open_penalty'] != 40.0:
-            command += "-baqGOP " + str(job['input']['BAQ_gap_open_penalty'])
-    if job['input']['no_output_SLOD']:
-        command += "-nosl"
+    newTable = dxpy.new_dxgtable(columns=columns, indices=indices)
+    newTable.add_tags(tags)
+    newTable.set_details(details)
+    newTable.rename(name+" Realigned and Recalibrated")
     
-    #print command
-    return command
+    return newTable
 
-def extractHeader(vcfFileName, elevatedTags):
-    result = {'columns': '', 'tags' : {'format' : {}, 'info' : {} }, 'filters' : {}}
-    for line in open(vcfFileName):
-        tag = re.findall("ID=(\w+),", line)
-        if len(tag) > 0:
-          tagType = ''
-          if line.count("FORMAT") > 0:
-            tagType = 'format'
-          elif line.count("INFO") > 0:
-            tagType = 'info'
-          elif line.count("FILTER") > 0:
-            result['filters'][re.findall("ID=(\w+),")[0]] = re.findall('Description="(.*)"')[0]
-      
-          typ = re.findall("Type=(\w+),", line)
-          if tagType != '':
-            number = re.findall("Number=(\w+)", line)
-            description = re.findall('Description="(.*)"', line)
-            if len(number) == 0:
-              number = ['.']
-            if len(description) == 0:
-              description = ['']
-            if "format_"+tag[0] not in elevatedTags:
-                result['tags'][tagType][tag[0]] = {'type':typ[0], 'description' : description[0], 'number' : number[0]}
-        if line[0] == "#" and line[1] != "#":
-          result['columns'] = line.strip()
-        if line == '' or line[0] != "#":
-            break
-    return result
 
 #
 #
