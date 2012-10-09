@@ -5,22 +5,55 @@
   "description": "This app applies a number of recalculations to a mappings object in order to improve the quality of variant calls. This follows the Broad Institutes recommendations for best practices in variant calling. Mappings are deduplicated, realigned around sites of known indels, and their quality is recalibrated by looking at covariance in quality metrics with frequently observed variation in the genome.",
   "dxapi": "1.0.0",
   "inputSpec": [
-    {"name": "mappings", "class": "gtable", "label":"Mappings Table", "help":"The mapped reads which will be deduplicated", "type": "LetterMappings"},
+    {"name": "mappings", "class": "array:gtable", "label":"Mappings Table(s)", "help":"The mapped reads which will be deduplicated", "type": "LetterMappings"},
     {"name": "reference", "class": "record", "label":"Reference Genome", "help":"The reference genome used to align the mappings", "type": "ContigSet"},
-    {"name": "output name", "class": "string", "label":"Output Name", "help":"The name of the deduplicated table", "optional": true},
-    {"name": "discard_unmapped", "class": "boolean", "label":"Discard Unmapped", "help":"If selected, those reads which were not mapped to the genome will not be written to the deduplicated table", "default": true},
-    {"name": "discard_duplicates", "class": "boolean", "label":"Discard Duplicates", "help":"If selected, those reads that would be marked as duplicate will instead not be writen to the deduplicated table", "default": true},
-    {"name": "dbsnp", "class": "file", "label":"dbsnp", "help":"The dbsnp database in tar.gz format"},
-    {"name": "known_indels", "class": "array:file", "label":"Known Indels", "help":"Variant objects containing known indels to use in the process of realigning around the sites of known indels", "optional":true}
+    {"name": "output_name", "class": "string", "label":"Output Name", "help":"The name of the deduplicated table", "optional": true},
+    {"name": "dbsnp", "class": "file", "label":"dbSNP", "help":"The dbsnp database in tar.gz format"},
+    {"name": "known_indels", "class": "array:file", "label":"Known Indels", "help":"Variant objects containing known indels to use in the process of realigning around the sites of known indels", "optional":true},
+
+
+    {"name": "max_interval_size", "class":"int", "label": "Max Interval Size", "default":500, "help": "Intervals larger than this will not be used in indel realignment"},
+    {"name": "min_reads_locus", "class":"int", "label": "Min Reads at Locus", "default":4, "help": "Mimimum reads at a locus to enable using entropy calculation for indel realignment"},
+    {"name": "mismatch_fraction", "class":"float", "label": "Mismatch Fraction", "default":0.0, "help":"Fraction of base qualities needing to mismatch for a position to have high entropy for indel realignment target creator"},
+    {"name": "window_size", "class":"int", "label":"Window Size", "default": 10, "help": "Window size for calculating entropy or SNP clusters"},
+
+
+    {"name": "consensus_model", "class":"string", "label":"Consensus Determination Model", "optional":true, "help": "Determines how to compute the possible alternate consenses in indel realignment. Must be one of the following values: [\"USE_READS\", \"KNOWNS_ONLY\", \"USE_SW\"]"},
+    {"name": "lod_threshold", "class":"float", "label":"LOD Cleaning Threshold", "default":5.0, "help":"LOD threshold above which the cleaner will clean in indel realignment, threshold for whether improvement is significant enough to merit realignment. Lower values are recommended in cases of low coverage or looking for indels with low allele frequency"},
+    {"name": "entropy_threshold", "class":"float", "label":"Entropy Threshold", "default":0.15, "help":"Percentage of mismatches at a locus to be considered having high intropy in the indel realigner"},
+    {"name": "max_consensuses", "class":"int", "label":"Max Consensuses", "default":30, "help":"Max alternate consensuses to try (improves performance in deep coverage)"},
+    {"name": "max_insert_size_movement", "class":"int", "label": "Max Insert Movement Size", "default":3000, "help":"Maximum insert size of read pairs that realignment attempted for"},
+    {"name": "max_position_move", "class":"int", "label": "Max Position Move", "default":200, "help":"Maximum positional move in basepairs that a read can be adjusted during realignment"},
+    {"name": "max_reads_consensus", "class":"int", "label": "Max Reads for Consensus", "default":120, "help":"Maximum reads used for finding the alternate consensuses (improves performance in deep coverage)"},
+    {"name": "max_reads_realignment", "class":"int", "label": "Max Reads for Realignment", "default":20000, "help":"Maximum reads allowed at an interval for realignment"},
+
+
+    {"name": "solid_recalibration_mode", "class":"string", "label":"SOLiD Recalibration Mode", "optional":true, "help":"Only applies to SOLiD sequencing. How to recalibrate bases in which the reference was inseted. If entered, must be one of the following options: [\"DO_NOTHING\", \"SET_Q_ZERO\", \"SET_Q_ZERO_BASE_N\", \"REMOVE_REF_BIAS\"]"},
+    {"name": "solid_nocall_strategy", "class":"string", "label":"SOLiD No-call Strategy", "default": "PURGE_READ", "help":"Only applies to SOLiD sequencing. Defines behavoir when no-call encountered in color space. If entered, must be one of the following options: [\"THROW_EXCEPTION\", \"LEAVE_READ_UNRECALIBRATED\", \"PURGE_READ\"]"},
+    {"name": "context_size", "class":"int", "label":"Count Covariate Context Size", "optional":true, "help":"Size of the k-mer context used in count covariates"},
+    {"name": "nback", "class": "int", "label": "Count Covariates N-back", "optional":true, "help":"The number of previous bases to look at in HomopolymerCovariate"},
+    {"name": "cycle_covariate", "class":"boolean", "label": "Use Cycle Covariate", "default":true, "help":"Use cycle covariation in the quality recalibration process"},
+    {"name": "dinuc_covariate", "class":"boolean", "label": "Use Dinucleotide Covariate", "default":true, "help":"Use dinucleotide covariation in the quality recalibration process"},
+    {"name": "primer_round_covariate", "class":"boolean", "label": "Use Primer Round Covariate", "default":false, "help":"Use primer round covariation in the quality recalibration process"},
+    {"name": "mapping_quality_covariate", "class":"boolean", "label": "Use Mapping Quality Covariate", "default":false, "help":"Use mapping quality covariation in the quality recalibration process"},
+    {"name": "homopolymer_covariate", "class":"boolean", "label": "Use Homopolymer Covariate", "default":false, "help":"Use homopolymer covariation in the quality recalibration process"},
+    {"name": "gc_content_covariate", "class":"boolean", "label": "Use GC Content Covariate", "default":false, "help":"Use gc content covariation in the quality recalibration process"},
+    {"name": "position_covariate", "class":"boolean", "label": "Use Position Covariate", "default":false, "help":"Use position covariation in the quality recalibration process"},
+    {"name": "minimum_nqs_covariate", "class":"boolean", "label": "Use Minimum NQS Covariate", "default":false, "help":"Use minimum NQS covariation in the quality recalibration process"},
+    {"name": "context_covariate", "class":"boolean", "label": "Use Context Covariate", "default":false, "help":"Use context covariation in the quality recalibration process"},
+    {"name": "preserve_qscore", "class":"int", "label":"Preserve Q-Scores Less Than", "default":5, "helP":"Do not recalibrate quality scores below this threshold. Since many base callers use quality scores below 5 to indicate random or bad bases, it is often unsafe to recalibrate these bases." },
+    {"name": "smoothing", "class":"int", "label":"Smoothing Counts", "optional":true, "help":"Number of imaginary counts to add to each bin in order to smooth out binds with few data points"},
+    {"name": "max_quality", "class":"int", "label":"Maximum Quality Score", "optional":true, "help":"The value at which to cap the quality scores"}
+
   
   ],
   "outputSpec": [
-    {"name": "recalibrated_mappings", "class": "gtable", "type": {"$and": ["LetterMappings", "Mappings", "gri"]}}
+    {"name": "recalibrated_mappings", "class": "gtable"}
   ],
   "runSpec":
     {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre"}, {"name":"tabix"}]},
     "resources": [],
-    "version": "0.0.69",
+    "version": "0.0.103",
     "categories": [
         "Quality filter"
     ],
