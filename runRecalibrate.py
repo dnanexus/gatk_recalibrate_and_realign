@@ -33,12 +33,13 @@ def main():
     except:
         raise dxpy.AppError("The original reference genome must be attached as a detail")
     
+    
     reads = 0   
     for x in job['input']['mappings']:
         table = dxpy.DXGTable(x)
         reads += int(table.describe()['length'])
-    chunks = int(reads/100000000)+1
-    chunks = 5
+    chunks = int(reads/job['input']['reads_per_job'])+2
+    #chunks = 5
 
     #Split the genome into chunks to parallelize
     commandList = splitGenomeLengthChromosome(originalContigSet, chunks)
@@ -49,7 +50,7 @@ def main():
     #This is a Picard Mark Duplicates job run only on interchromosomal mappings in the case that the genome is split into regions
     #This is necessary because Mark Duplicates has to look at both mates in a read pair, so interchromosomal mappings must go together
     if chunks > 1:
-        mapMarkDuplicatesInput = {
+        mapBestPracticesInput = {
             'mappings_tables': job['input']['mappings'],
             'interchromosome_bam': '',
             'interval': commandList,
@@ -57,7 +58,7 @@ def main():
             'exclude_interchromosomal': False,
             'include_interchromosomal': True
         }
-        interchromosomeJobId = dxpy.new_dxjob(fn_input=mapMarkDuplicatesInput, fn_name="mapMarkDuplicates").get_id()
+        interchromosomeJobId = dxpy.new_dxjob(fn_input=mapBestPracticesInput, fn_name="mapBestPractices").get_id()
         interchromosomeJobField = { 'job': interchromosomeJobId, 'field': 'bam'}
     else:
         interchromosomeJobField = ''
@@ -67,7 +68,7 @@ def main():
     resultingFiles = []
     for i in range(len(commandList)):
         print commandList[i]
-        mapMarkDuplicatesInput = {
+        mapBestPracticesInput = {
             'mappings_tables': job['input']['mappings'],
             'recalibrated_table_id': recalibratedTable.get_id(),
             'interchromosome_bam': interchromosomeJobField,
@@ -80,8 +81,8 @@ def main():
             'known_indels': job['input']['known_indels'],
             'parent_input': job['input']
         }
-        markDuplicatesJobId = dxpy.new_dxjob(fn_input=mapMarkDuplicatesInput, fn_name="mapMarkDuplicates").get_id()
-        reduceInput["mapJob" + str(i)] = {'job': markDuplicatesJobId, 'field': 'ok'}
+        mapJobId = dxpy.new_dxjob(fn_input=mapBestPracticesInput, fn_name="mapBestPractices").get_id()
+        reduceInput["mapJob" + str(i)] = {'job': mapJobId, 'field': 'ok'}
     reduceInput["recalibrated_table"] = recalibratedTable.get_id()
 
     reduceJobId = dxpy.new_dxjob(fn_input=reduceInput, fn_name="reduceBestPractices").get_id()
@@ -107,7 +108,7 @@ def writeUnmappedReads(mappingsTable, dedupTable):
             dedupTable.add_rows([entry])
 
 
-def mapMarkDuplicates():
+def mapBestPractices():
     os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/SortSam.jar:/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
     
     #mappingsTable = dxpy.open_dxgtable(job['input']['mappings_table_id'])
@@ -138,31 +139,41 @@ def mapMarkDuplicates():
             subprocess.check_call(command, shell=True)
             subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate", shell=True)
             subprocess.check_call("mv input.sorted.sam input."+str(i)+".sam", shell=True)
+            subprocess.check_call("rm input.sam", shell=True)
         elif job['input']['exclude_interchromosomal']:
             command = "dx_mappings_to_sam2 %s --output input.sam --region_index_offset -1 --id_as_name --region_file regions.txt --no_interchromosomal_mate --write_row_id --read_group_platform illumina --assign_read_group %d --id_prepend %d_" % (mappingsTable, i, i)
             print command
             subprocess.check_call(command, shell=True)
             subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate", shell=True)
             subprocess.check_call("mv input.sorted.sam input."+str(i)+".sam", shell=True)
+            subprocess.check_call("rm input.sam", shell=True)
         elif job['input']['include_interchromosomal']:
             command = "dx_mappings_to_sam2 %s --output input.sam --id_as_name --only_interchromosomal_mate --write_row_id --read_group_platform illumina --assign_read_group %d --id_prepend %d_" % (mappingsTable, i, i)
             print command
             subprocess.check_call(command, shell=True)
             subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate", shell=True)
             subprocess.check_call("mv input.sorted.sam input."+str(i)+".sam", shell=True)
+            subprocess.check_call("rm input.sam", shell=True)
         #if i == 0:
         #    subprocess.check_call("mv input.0.sam input.sam", shell=True)
         #else:
         #    command = "java -Xmx4g net.sf.picard.sam.MergeSamFiles SORT_ORDER=coordinate USE_THREADING=true INPUT=dedup.rg.bam INPUT=interchromosomeBam.bam OUTPUT=input.bam"
         #    subprocess.check_call("java -Xmx4g net.sf.picard.sam.MergeSamFiles SORT_ORDER=coordinate USE_THREADING=true INPUT=dedup.rg.bam INPUT=interchromosomeBam.bam OUTPUT=input.bam", shell=True)
 
+
     readsPresent = False
+    #if len(job['input']['mappings_tables']) == 1:
+    #    if checkSamContainsRead("input.0.sam"):
+    #        readsPresent = True
+    #        subprocess.check_call("mv input.0.sam input.sam", shell=True)
+    #        subprocess.check_call("wc -l input.sam", shell=True)
+    #else:
     command = "java -Xmx4g net.sf.picard.sam.MergeSamFiles OUTPUT=input.sam USE_THREADING=true SORT_ORDER=coordinate"
     for i in range(len(job['input']['mappings_tables'])):
         if checkSamContainsRead("input."+str(i)+".sam"):
             command += " INPUT=input."+str(i)+".sam"
             readsPresent = True
-        
+    
 
     if readsPresent:
         subprocess.check_call(command, shell=True)
@@ -207,9 +218,32 @@ def mapMarkDuplicates():
     knownCommand = ''
     for i in range(len(job['input']['known_indels'])):
         dxpy.download_dxfile(job['input']['known_indels'][i], "indels"+str(i)+".vcf.gz")
-        subprocess.check_call("gzip -d indels"+str(i)+".vcf.gz", shell=True)
-        knownCommand += " -known indels"+str(i)+".vcf"        
+        knownFileName = "indels"+str(i)+".vcf.gz"
+        try:
+            p = subprocess.Popen("tabix -f -p vcf " + knownFileName, stderr=subprocess.PIPE, shell=True)
+            if '[tabix] was bgzip' in p.communicate()[1]:
+                subprocess.check_call("gzip -d " + knownFileName, shell=True)
+                knownFileName = "indels"+str(i)+".vcf.gz"
+        except subprocess.CalledProcessError:
+            raise dxpy.AppError("An error occurred decompressing dbsnp. Expected dbsnp as a gziped file.")
+        knownCommand += " -known " + knownFileName        
     command += knownIndels
+    
+    #Find chromosomes
+    regionChromosomes = []
+    for x in re.findall("-L ([^:]*):\d+-\d+", job['input']['interval']):
+        regionChromosomes.append(x[0])
+    
+    #Commented because exporting the known indels from variants takes far too long
+    #knownCommand = ''
+    #for i in range(len(job['input']['known_indels'])):
+    #    variantsId = job['input']['known_indels'][i]['$dnanexus_link']
+    #    command = "dx_variantsToVcf2 --table_id %s --output indels%d.vcf" % (variantsId, i)
+    #    for x in regionChromosomes:
+    #        command += " --chr " + x
+    #    subprocess.check_call(command, shell=True)
+    #    knownCommand += " -known indels"+str(i)+".vcf"   
+    #command += knownIndels
 
     #Add options for RealignerTargetCreator
     if job['input']['parent_input']['window_size'] != 10:
@@ -254,11 +288,21 @@ def mapMarkDuplicates():
     
     #Download dbsnp
     dxpy.download_dxfile(job['input']['dbsnp'], "dbsnp.vcf.gz")
-    subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
-    #subprocess.check_call("tabix -f -p vcf dbsnp.vcf.gz", shell=True)        
+    
+    dbsnpFileName = 'dbsnp.vcf.gz'
+    try:
+        p = subprocess.Popen("tabix -f -p vcf dbsnp.vcf.gz", stderr=subprocess.PIPE, shell=True)
+        if '[tabix] was bgzip' in p.communicate()[1]:
+            subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
+            dbsnpFileName = 'dbsnp.vcf'
+    except subprocess.CalledProcessError:
+        raise dxpy.AppError("An error occurred decompressing dbsnp. Expected dbsnp as a gziped file.")
+    
+    #subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
 
     #Count Covariates
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -recalFile recalibration.csv -knownSites dbsnp.vcf -I realigned.bam -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate --standard_covs"
+    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -recalFile recalibration.csv -I realigned.bam -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate --standard_covs"
+    command += "-knownSites " + dbsnpFileName
     command += job['input']['interval']
     command += " --num_threads " + str(cpu_count())
     
@@ -327,10 +371,7 @@ def mapMarkDuplicates():
     result = dxpy.upload_local_file("recalibrated.bam")
     job['output']['recalibrated_bam'] = dxpy.dxlink(result.get_id())
 
-    #Find chromosomes
-    regionChromosomes = []
-    for x in re.findall("-L ([^:]*):\d+-\d+", job['input']['interval']):
-        regionChromosomes.append(x[0])
+    
 
     #Read SAM, extracting chr, lo, hi, qual, cigar, duplicate flag, chr2, lo2, hi2
 
@@ -356,6 +397,8 @@ def mapMarkDuplicates():
         else:
             default[x["name"]] = ""
 
+    print "Recalibrated SAM: " + dxpy.upload_local_file("recalibrated.sam").get_id()
+
     result = {}
     for line in open("recalibrated.sam", 'r'):
         if line[0] != "@":
@@ -365,7 +408,9 @@ def mapMarkDuplicates():
             qual = tabSplit[10]
             alignLength = 0
             cigar = re.split('(\d+)', tabSplit[5])
-            duplicate = (int(tabSplit[1]) & 0x400 == 1)
+            duplicate = (int(tabSplit[1]) & 0x400 == True)
+            if int(tabSplit[1]) & 0x10:
+                qual = qual[::-1]
             for p in range(len(cigar)):
                 c = cigar[p]
                 if c == 'M' or c == 'D' or c == 'N' or c == 'X' or c == 'P' or c == '=':
@@ -486,6 +531,7 @@ def createNewTable(mappingsArray, recalibratedName):
     columns = []
     tags = []
     indices = []
+    types = []
     for i in range(len(mappingsArray)):
         oldTable = dxpy.DXGTable(mappingsArray[i]['$dnanexus_link'])        
         for x in oldTable.describe()['columns']:
@@ -497,6 +543,9 @@ def createNewTable(mappingsArray, recalibratedName):
         for x in oldTable.describe()['tags']:
             if x not in tags:
                 tags.append(x)
+        for x in oldTable.describe()['types']:
+            if x not in types:
+                types.append(x)
     oldTable = dxpy.DXGTable(mappingsArray[0]['$dnanexus_link'])
     if recalibratedName == '':
         recalibratedName = oldTable.describe()['name'] + " Realigned and Recalibrated"        
@@ -504,6 +553,7 @@ def createNewTable(mappingsArray, recalibratedName):
     newTable = dxpy.new_dxgtable(columns=columns, indices=indices)
     newTable.add_tags(tags)
     newTable.set_details(details)
+    newTable.add_types(types)
     newTable.rename(recalibratedName)
     
     return newTable
