@@ -29,6 +29,7 @@ parser.add_argument("--only_interchromosomal_mate", dest="only_interchromosomal"
 parser.add_argument("--add_to_read_group", dest="add_to_read_group", type=int, default=0, help="Add this number to the read groups in this table. Useful for combining the mappings from multiple tables")
 parser.add_argument("--read_group_platform", dest="read_group_platform", default="", help="If entered, will print this as the platform used for the read group in the SAM header")
 parser.add_argument("--write_row_id", dest="write_row_id", default=False, action="store_true", help="If selected, the row of the mappings table will be written into optional sam tag ZD")
+parser.add_argument("--include_unmapped", dest="include_unmapped", default=False, action="store_true", help="If selected, unmapped reads will specifically be included")
 
 def main(**kwargs):
 
@@ -172,6 +173,20 @@ def main(**kwargs):
                             writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
                         elif opts.no_interchromosomal == False and opts.only_interchromosomal == False:
                             writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
+
+    if opts.include_unmapped:
+        for row in mappingsTable.iterate_rows(want_dict=True):
+            if row["chr"] != "":
+                break
+            if not paired:
+                writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
+            elif opts.no_interchromosomal and row["chr"] == row["chr2"]:
+                writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
+            elif opts.only_interchromosomal and opts.no_interchromosomal == False and (row["chr"] != row["chr2"] or (row["chr"] == "" and row["chr2"] == "")):
+                writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
+            elif opts.no_interchromosomal == False and opts.only_interchromosomal == False:
+                writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
+            
 
     if outputFile != None:
         outputFile.close()

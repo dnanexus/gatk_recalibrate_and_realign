@@ -55,7 +55,7 @@
   "runSpec":
     {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre"}, {"name":"tabix"}]},
     "resources": [],
-    "version": "0.0.159",
+    "version": "0.0.167",
     "categories": [
         "Quality filter"
     ],
