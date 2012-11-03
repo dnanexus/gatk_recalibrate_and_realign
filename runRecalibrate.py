@@ -50,27 +50,30 @@ def main():
     
     #This is a Picard Mark Duplicates job run only on interchromosomal mappings in the case that the genome is split into regions
     #This is necessary because Mark Duplicates has to look at both mates in a read pair, so interchromosomal mappings must go together
-    reduceInput = {}
+    reduceInterchromosomeInput = {}
     if chunks > 1:
         bamFiles = []
-        for i in xrange(chunks):
+        for i in xrange(-1, chunks):
             bamFiles.append(dxpy.new_dxfile().get_id())
-        mapBestPracticesInput = {
+            mapInterchromosomeInput = {
             'mappings_tables': job['input']['mappings'],
-            'file_list': bamFiles,
             'interval': commandList,
-            'job_number' : -1,
-            'separate_read_groups' : job['input']['separate_read_groups'],
-            'exclude_interchromosomal': False,
-            'include_interchromosomal': True
-        }
-        interchromosomeJobId = dxpy.new_dxjob(fn_input=mapBestPracticesInput, fn_name="mapBestPractices").get_id()
-        reduceInput["mapJob-1"] = {'job': interchromosomeJobId, 'field': 'ok'}
+            'job_number' : i,
+            'separate_read_groups' : job['input']['separate_read_groups']
+            }
+            interchromosomeJobId = dxpy.new_dxjob(fn_input=mapInterchromosomeInput, fn_name="mapInterchromosome").get_id()
+            reduceInterchromosomeInput["mapJob"+str(i)] = {'job': interchromosomeJobId, 'field': 'file_id'}
         #interchromosomeJobField = { 'job': interchromosomeJobId, 'field': 'bam'}
+        
+        #Make a reduce job for the interchromosome component
+        reduceInterchromosomeInput["file_list"] =  bamFiles
+        reduceInterchromosomeInput["interval"] = commandList
+        reduceJobId = dxpy.new_dxjob(fn_input=reduceInterchromosomeInput, fn_name="reduceInterchromosome").get_id()
     else:
         interchromosomeJobField = ''
     
     #This runs the Picard Mark Duplicates program to deduplicate the reads
+    reduceInput = {}
     for i in range(len(commandList)):
         print commandList[i]
         mapBestPracticesInput = {
@@ -79,8 +82,6 @@ def main():
             'file_list': bamFiles,
             'interval': commandList[i],
             'job_number' : i,
-            'exclude_interchromosomal': excludeInterchromosome,
-            'include_interchromosomal': False,
             'reference': job['input']['reference']['$dnanexus_link'],
             'dbsnp': job['input']['dbsnp'],
             'known_indels': job['input']['known_indels'],
@@ -116,73 +117,119 @@ def writeUnmappedReads(mappingsTable, dedupTable):
             dedupTable.add_rows([entry])
 
 
+def mapInterchromosome():
+    os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/SortSam.jar:/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
+    
+    regionFile = open("regions.txt", 'w')
+    for x in job['input']['interval']:
+        print x
+        regionFile.write(x)
+    regionFile.close()
+    
+    jobNumber = job['input']['job_number']
+    if jobNumber == -1:
+        for i in range(len(job['input']['mappings_tables'])):    
+            mappingsTable = dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_id()
+            command = "dx_mappings_to_sam2 %s --output input.%d.sam --id_as_name --only_unmapped --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
+            print command
+            subprocess.check_call(command, shell=True)
+    else:
+        for i in range(len(job['input']['mappings_tables'])):
+            mappingsTable = dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_id()
+            command = "dx_mappings_to_sam2 %s --output input.%d.sam --id_as_name --region_index_offset -1 --region_file regions.txt --read_group_platform illumina --only_interchromosomal_mate --id_prepend %d_" % (mappingsTable, i, i)
+            print command
+            subprocess.check_call(command, shell=True)
+    
+    if len(job['input']['mappings_tables']) == 1:
+        if checkSamContainsRead("input.0.sam"):
+            readsPresent = True
+            subprocess.check_call("mv input.0.sam input.sam", shell=True)
+    else:
+        command = "java -Xmx4g net.sf.picard.sam.MergeSamFiles OUTPUT=input.sam USE_THREADING=true SORT_ORDER=coordinate VALIDATION_STRINGENCY=SILENT"
+        for i in range(len(job['input']['mappings_tables'])):
+            if checkSamContainsRead("input."+str(i)+".sam"):
+                command += " INPUT=input."+str(i)+".sam"
+                readsPresent = True
+                
+    if checkSamContainsRead("input.sam"):
+        subprocess.check_call("samtools view -bS input.sam > input.bam", shell=True)
+        fileId = dxpy.upload_local_file("input.bam").get_id()
+        job['output']['file_id'] = fileId
+    else:
+        job['output']['file_id'] = ''
+    
+def reduceInterchromosome():
+    os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/SortSam.jar:/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
+    i = -1
+    command = "java -Xmx4g net.sf.picard.sam.MergeSamFiles OUTPUT=merge.bam USE_THREADING=true SORT_ORDER=coordinate VALIDATION_STRINGENCY=SILENT"
+    noFiles = True
+    while "mapJob"+str(i) in job["input"]:
+        if job["input"]["mapJob"+str(i)] != '':
+            command += " INPUT=input."+str(i+1)+".bam"
+            dxpy.download_dxfile(job["input"]["mapJob"+str(i)], "input."+str(i+1)+".bam")
+            noFiles = False
+        i+=1
+    
+    if noFiles:
+        for x in job['input']['file_list']:
+            dxpy.DXFile(x).close()
+    else:
+        subprocess.check_call(command, shell=True)            
+        subprocess.check_call("samtools index merge.bam", shell=True)
+        for i in range(len(job['input']['interval'])):
+            try:
+                startTime = time.time()
+                chromosomeFile = open("chromosome.bam", 'w')
+                chromosomeFile.close()
+                fileId = dxpy.DXFile(job['input']['file_list'][i])
+                command = "samtools view -b merge.bam " + job['input']['interval'][i].replace(" -L ", " ") + " > chromosome.bam"
+                print command
+                subprocess.check_call(command, shell=True)
+                if os.stat('chromosome.bam').st_size > 0:
+                    dxpy.upload_local_file("chromosome.bam", use_existing_dxfile=fileId)
+                    print "Result upload completed in " + str(int((time.time()-startTime)/60)) + " minutes"
+                else:
+                    print "This interval was empty of reads"
+                    dxpy.DXFile(job['input']['file_list'][i]).close()
+            except:
+                print "Could not write this interval"
+                dxpy.DXFile(job['input']['file_list'][i]).close()
+    job['output']['ok'] = True
+    return
+
 def mapBestPractices():
     os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/SortSam.jar:/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
     
     #mappingsTable = dxpy.open_dxgtable(job['input']['mappings_table_id'])
     
     jobNumber = job['input']['job_number']
-    
-    if job['input']['exclude_interchromosomal'] and job['input']['include_interchromosomal'] == False:        
-        regionFile = open("regions.txt", 'w')
-        print job['input']['interval']
-        print "Include interchromosomal" + str(job['input']['include_interchromosomal'])
-        print "Exclude interchromosomal" + str(job['input']['exclude_interchromosomal'])
-        regionFile.write(job['input']['interval'])
-        regionFile.close()
-    elif jobNumber == -1:
-        regionFile = open("regions.txt", 'w')
-        for x in job['input']['interval']:
-            regionFile.write(" " + x)
-        regionFile.close()
-
+         
+    regionFile = open("regions.txt", 'w')
+    print job['input']['interval']
+    regionFile.write(job['input']['interval'])
+    regionFile.close()
 
     readGroups = 0
     print "Converting Table to SAM"
     for i in range(len(job['input']['mappings_tables'])):
         mappingsTable = dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_id()
-        if job['input']['exclude_interchromosomal'] == False and job['input']['include_interchromosomal'] == False:
-            command = "dx_mappings_to_sam2 %s --output input.%d.sam --id_as_name --include_unmapped --write_row_id --region_index_offset -1 --region_file regions.txt --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
-            if job['input']['separate_read_groups']:
-                command += " --add_to_read_group " + str(readGroups)
-                readGroups += len(dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_details()['read_groups'])
-            print command
-            
-            startTime = time.time()
-            subprocess.check_call(command, shell=True)
-            print "Download mappings completed in " + str(int((time.time()-startTime)/60)) + " minutes"
-            #subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate VALIDATION_STRINGENCY=SILENT", shell=True)
-            #subprocess.check_call("mv input.sorted.sam input."+str(i)+".sam", shell=True)
-            #subprocess.check_call("rm input.sam", shell=True)
-        elif job['input']['exclude_interchromosomal']:
-            command = "dx_mappings_to_sam2 %s --output input.%d.sam --include_unmapped --region_index_offset -1 --id_as_name --region_file regions.txt --no_interchromosomal_mate --write_row_id --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
-            if job['input']['separate_read_groups']:
-                command += " --add_to_read_group " + str(readGroups)
-                readGroups += len(dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_details()['read_groups'])
-            print command
-            startTime = time.time()
-            subprocess.check_call(command, shell=True)
-            print "Download mappings completed in " + str(int((time.time()-startTime)/60)) + " minutes"
-            #subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate VALIDATION_STRINGENCY=SILENT", shell=True)
-            #subprocess.check_call("mv input.sorted.sam input."+str(i)+".sam", shell=True)
-            #subprocess.check_call("rm input.sam", shell=True)
-        elif job['input']['include_interchromosomal']:
-            command = "dx_mappings_to_sam2 %s --output input.%d.sam --include_unmapped --region_index_offset -1 --region_file regions.txt --id_as_name --only_interchromosomal_mate --write_row_id --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
-            if job['input']['separate_read_groups']:
-                command += " --add_to_read_group " + str(readGroups)
-                readGroups += len(dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_details()['read_groups'])
-            print command
-            startTime = time.time()
-            subprocess.check_call(command, shell=True)
-            print "Download mappings completed in " + str(int((time.time()-startTime)/60)) + " minutes"
-            #subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate VALIDATION_STRINGENCY=SILENT", shell=True)
-            #subprocess.check_call("mv input.sorted.sam input."+str(i)+".sam", shell=True)
-            #subprocess.check_call("rm input.sam", shell=True)
+        command = "dx_mappings_to_sam2 %s --output input.%d.sam --region_index_offset -1 --id_as_name --region_file regions.txt --no_interchromosomal_mate --write_row_id --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
+        if job['input']['separate_read_groups']:
+            command += " --add_to_read_group " + str(readGroups)
+            readGroups += len(dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_details()['read_groups'])
+        print command
+        startTime = time.time()
+        subprocess.check_call(command, shell=True)
+        print "Download mappings completed in " + str(int((time.time()-startTime)/60)) + " minutes"
+        #subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate VALIDATION_STRINGENCY=SILENT", shell=True)
+        #subprocess.check_call("mv input.sorted.sam input."+str(i)+".sam", shell=True)
+        #subprocess.check_call("rm input.sam", shell=True)
+        #subprocess.check_call("rm input.sam", shell=True)
 
 
     readsPresent = False
     
-    if len(job['input']['mappings_tables']):
+    if len(job['input']['mappings_tables']) == 1:
         if checkSamContainsRead("input.0.sam"):
             readsPresent = True
             subprocess.check_call("mv input.0.sam input.sam", shell=True)
@@ -199,23 +246,6 @@ def mapBestPractices():
         startTime = time.time()
         subprocess.check_call("samtools view -bS dedup.sam > dedup.bam", shell=True)
         print "Conversion to BAM completed in " + str(int((time.time()-startTime)/60)) + " minutes"
-        
-        if job['input']['job_number'] == -1:
-            subprocess.check_call("samtools index dedup.bam", shell=True)
-            outputFiles = []
-            for i in range(len(job['input']['interval'])):
-                try:
-                    fileId = dxpy.DXFile(job['input']['file_list'][i])
-                    command = "samtools view -b dedup.bam " + job['input']['interval'][i].replace(" -L ", " ") + " > chromosome.bam"
-                    print command
-                    subprocess.check_call(command, shell=True)
-                    startTime = time.time()
-                    outputFiles.append(dxpy.upload_local_file("chromosome.bam", use_existing_dxfile=fileId).get_id())
-                    print "Result upload completed in " + str(int((time.time()-startTime)/60)) + " minutes"
-                except:
-                    outputFile.append('')
-            job['output']['ok'] = True
-            return
         #else:
         #    subprocess.check_call("java net.sf.picard.sam.AddOrReplaceReadGroups INPUT=dedup.bam OUTPUT=dedup.rg.bam RGID="+str(job['input']['job_number'])+" RGLB=library RGPL=illumina RGPU="+str(job['input']['job_number'])+" SM="+str(job['input']['job_number']), shell=True)
     else:

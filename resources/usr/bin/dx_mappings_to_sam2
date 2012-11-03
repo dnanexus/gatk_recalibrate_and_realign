@@ -30,6 +30,8 @@ parser.add_argument("--add_to_read_group", dest="add_to_read_group", type=int, d
 parser.add_argument("--read_group_platform", dest="read_group_platform", default="", help="If entered, will print this as the platform used for the read group in the SAM header")
 parser.add_argument("--write_row_id", dest="write_row_id", default=False, action="store_true", help="If selected, the row of the mappings table will be written into optional sam tag ZD")
 parser.add_argument("--include_unmapped", dest="include_unmapped", default=False, action="store_true", help="If selected, unmapped reads will specifically be included")
+parser.add_argument("--only_unmapped", dest="only_unmapped", default=False, action="store_true", help="If selected, Only unmapped reads will be written")
+
 
 def main(**kwargs):
 
@@ -47,6 +49,8 @@ def main(**kwargs):
     idPrepend = opts.id_prepend
     writeRowId = opts.write_row_id
     addToReadGroup = opts.add_to_read_group
+    if opts.only_unmapped:
+        opts.include_unmapped = True
     
     paired = "chr2" in mappingsTable.get_col_names()
 
@@ -130,7 +134,7 @@ def main(**kwargs):
 
     #unmappedFile = open("unmapped.txt", 'w')
         
-    if len(regions) == 0:
+    if len(regions) == 0 and not opts.only_unmapped:
 
         if opts.start_row > mappingsTable.describe()['length']:
             raise dxpy.AppError("Starting row is larger than number of rows in table")
@@ -155,7 +159,7 @@ def main(**kwargs):
                     writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
                 
 
-    else:
+    elif not opts.only_unmapped:
         for x in regions:
             # generate the query for this region
             query = mappingsTable.genomic_range_query(x[0],int(x[1])+opts.region_index_offset,int(x[2])+opts.region_index_offset, index='gri')
