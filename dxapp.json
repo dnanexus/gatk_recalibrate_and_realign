@@ -52,12 +52,9 @@
   "outputSpec": [
     {"name": "recalibrated_mappings", "class": "gtable", "type": {"$and": ["LetterMappings", "Mappings", "gri"]}}
   ],
-  "runSpec":
-    {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre"}, {"name":"tabix"}, {"name":"pypy"}]},
-    "resources": [],
-    "version": "0.0.176",
-    "categories": [
-        "Quality filter"
-    ],
+  "runSpec": {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre"}, {"name":"tabix"}, {"name":"pypy"}]},
+  "resources": [],
+  "version": "0.0.176",
+  "categories": ["Variation calling"],
   "access": {"network":["github.com"]}
 }
