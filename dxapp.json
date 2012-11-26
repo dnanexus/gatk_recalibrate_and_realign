@@ -54,10 +54,16 @@
   ],
   "runSpec":
     {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre"}, {"name":"tabix"}, {"name":"pypy"}]},
-    "resources": [],
-    "version": "0.0.184",
-    "categories": [
-        "Quality filter"
-    ],
-  "access": {"network":["github.com"]}
+  "resources": [],
+  "version": "0.0.184",
+  "categories": [
+    "Quality filter"
+  ],
+  "details":{
+    "upstreamAuthor": "Broad Institute",
+    "upstreamVersion": "1.5-21-g979a84a",
+    "upstreamUrl": "http://www.broadinstitute.org/gatk/",
+    "upstreamLicencses": ["MIT"],
+    "citations": ["doi:10.1101/gr.107524.110"]
+  }
 }
