@@ -32,8 +32,7 @@ def main():
         originalContigSet = mappingsTable.get_details()['original_contigset']
     except:
         raise dxpy.AppError("The original reference genome must be attached as a detail")
-    
-    
+        
     reads = 0   
     for x in job['input']['mappings']:
         table = dxpy.DXGTable(x)
@@ -57,7 +56,7 @@ def main():
             bamFiles.append(dxpy.new_dxfile().get_id())
             mapInterchromosomeInput = {
             'mappings_tables': job['input']['mappings'],
-            'interval': commandList,
+            'interval': commandList[i],
             'job_number' : i,
             'separate_read_groups' : job['input']['separate_read_groups']
             }
@@ -84,10 +83,13 @@ def main():
             'job_number' : i,
             'reference': job['input']['reference']['$dnanexus_link'],
             'dbsnp': job['input']['dbsnp'],
-            'known_indels': job['input']['known_indels'],
             'separate_read_groups' : job['input']['separate_read_groups'],
             'parent_input': job['input']
         }
+        if 'known_indels' in job['input']:
+            mapBestPracticesInput['known_indels'] = job['input']['known_indels']
+        
+        
         mapJobId = dxpy.new_dxjob(fn_input=mapBestPracticesInput, fn_name="mapBestPractices").get_id()
         reduceInput["mapJob" + str(i)] = {'job': mapJobId, 'field': 'ok'}
     reduceInput["recalibrated_table"] = recalibratedTable.get_id()
@@ -121,39 +123,36 @@ def mapInterchromosome():
     os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/SortSam.jar:/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
     
     regionFile = open("regions.txt", 'w')
-    for x in job['input']['interval']:
-        print x
-        regionFile.write(x)
+    regionFile.write(job['input']['interval'])
     regionFile.close()
     
     jobNumber = job['input']['job_number']
     if jobNumber == -1:
-        for i in range(len(job['input']['mappings_tables'])):    
+        for i in range(len(job['input']['mappings_tables'])):
             mappingsTable = dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_id()
-            command = "dx_mappings_to_sam2 %s --output input.%d.sam --id_as_name --only_unmapped --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
+            command = "pypy /usr/bin/dx_mappings_to_sam2 %s --output input.%d.sam --id_as_name --only_unmapped --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
             print command
             subprocess.check_call(command, shell=True)
     else:
         for i in range(len(job['input']['mappings_tables'])):
             mappingsTable = dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_id()
-            command = "dx_mappings_to_sam2 %s --output input.%d.sam --id_as_name --region_index_offset -1 --region_file regions.txt --read_group_platform illumina --only_interchromosomal_mate --id_prepend %d_" % (mappingsTable, i, i)
+            command = "pypy /usr/bin/dx_mappings_to_sam2 %s --output input.%d.sam --id_as_name --region_index_offset -1 --region_file regions.txt --read_group_platform illumina --only_interchromosomal_mate --id_prepend %d_" % (mappingsTable, i, i)
             print command
             subprocess.check_call(command, shell=True)
     
     if len(job['input']['mappings_tables']) == 1:
         if checkSamContainsRead("input.0.sam"):
             readsPresent = True
-            subprocess.check_call("mv input.0.sam input.sam", shell=True)
+            subprocess.check_call("mv input.0.sam output.sam", shell=True)
     else:
-        command = "java -Xmx4g net.sf.picard.sam.MergeSamFiles OUTPUT=input.sam USE_THREADING=true SORT_ORDER=coordinate VALIDATION_STRINGENCY=SILENT"
+        command = "java -Xmx4g net.sf.picard.sam.MergeSamFiles OUTPUT=output.sam USE_THREADING=true SORT_ORDER=coordinate VALIDATION_STRINGENCY=SILENT"
         for i in range(len(job['input']['mappings_tables'])):
             if checkSamContainsRead("input."+str(i)+".sam"):
                 command += " INPUT=input."+str(i)+".sam"
                 readsPresent = True
-                
-    if checkSamContainsRead("input.sam"):
-        subprocess.check_call("samtools view -bS input.sam > input.bam", shell=True)
-        fileId = dxpy.upload_local_file("input.bam").get_id()
+    if readsPresent:
+        subprocess.check_call("samtools view -bS output.sam > output.bam", shell=True)
+        fileId = dxpy.upload_local_file("output.bam").get_id()
         job['output']['file_id'] = fileId
     else:
         job['output']['file_id'] = ''
@@ -174,15 +173,17 @@ def reduceInterchromosome():
         for x in job['input']['file_list']:
             dxpy.DXFile(x).close()
     else:
-        subprocess.check_call(command, shell=True)            
-        subprocess.check_call("samtools index merge.bam", shell=True)
+        subprocess.check_call(command, shell=True)
+        subprocess.check_call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=merge.bam O=dedup.bam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT", shell=True)
+        #subprocess.check_call("samtools view -bS dedup.sam > dedup.bam", shell=True)
+        subprocess.check_call("samtools index dedup.bam", shell=True)
         for i in range(len(job['input']['interval'])):
             try:
                 startTime = time.time()
                 chromosomeFile = open("chromosome.bam", 'w')
                 chromosomeFile.close()
                 fileId = dxpy.DXFile(job['input']['file_list'][i])
-                command = "samtools view -b merge.bam " + job['input']['interval'][i].replace(" -L ", " ") + " > chromosome.bam"
+                command = "samtools view -b dedup.bam " + job['input']['interval'][i].replace(" -L ", " ") + " > chromosome.bam"
                 print command
                 subprocess.check_call(command, shell=True)
                 if os.stat('chromosome.bam').st_size > 0:
@@ -213,7 +214,7 @@ def mapBestPractices():
     print "Converting Table to SAM"
     for i in range(len(job['input']['mappings_tables'])):
         mappingsTable = dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_id()
-        command = "dx_mappings_to_sam2 %s --output input.%d.sam --region_index_offset -1 --id_as_name --region_file regions.txt --no_interchromosomal_mate --write_row_id --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
+        command = "pypy /usr/bin/dx_mappings_to_sam2 %s --output input.%d.sam --region_index_offset -1 --id_as_name --region_file regions.txt --no_interchromosomal_mate --write_row_id --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
         if job['input']['separate_read_groups']:
             command += " --add_to_read_group " + str(readGroups)
             readGroups += len(dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_details()['read_groups'])
@@ -294,18 +295,19 @@ def mapBestPractices():
     
     #Download the known indels
     knownCommand = ''
-    for i in range(len(job['input']['known_indels'])):
-        dxpy.download_dxfile(job['input']['known_indels'][i], "indels"+str(i)+".vcf.gz")
-        knownFileName = "indels"+str(i)+".vcf.gz"
-        try:
-            p = subprocess.Popen("tabix -f -p vcf " + knownFileName, stderr=subprocess.PIPE, shell=True)
-            if '[tabix] was bgzip' in p.communicate()[1]:
-                subprocess.check_call("gzip -d " + knownFileName, shell=True)
-                knownFileName = "indels"+str(i)+".vcf.gz"
-        except subprocess.CalledProcessError:
-            raise dxpy.AppError("An error occurred decompressing dbsnp. Expected dbsnp as a gziped file.")
-        knownCommand += " -known " + knownFileName        
-    command += knownIndels
+    if 'known_indels' in job['input']:
+        for i in range(len(job['input']['known_indels'])):
+            dxpy.download_dxfile(job['input']['known_indels'][i], "indels"+str(i)+".vcf.gz")
+            knownFileName = "indels"+str(i)+".vcf.gz"
+            try:
+                p = subprocess.Popen("tabix -f -p vcf " + knownFileName, stderr=subprocess.PIPE, shell=True)
+                if '[tabix] was bgzip' in p.communicate()[1]:
+                    subprocess.check_call("gzip -d " + knownFileName, shell=True)
+                    knownFileName = "indels"+str(i)+".vcf.gz"
+            except subprocess.CalledProcessError:
+                raise dxpy.AppError("An error occurred decompressing dbsnp. Expected dbsnp as a gziped file.")
+            knownCommand += " -known " + knownFileName        
+        command += knownIndels
     
     #Find chromosomes
     regionChromosomes = []
