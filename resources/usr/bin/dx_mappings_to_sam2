@@ -197,7 +197,7 @@ def main(**kwargs):
 
 def tag_value_is_default(value):
     global MAX_INT
-    return value == MAX_INT or value == "" or (type(value) == float and math.isnan(value))
+    return value == MAX_INT or value == dxpy.NULL or value == ""
 
 def col_name_to_field_name(name):
     if name == 'sam_optional_fields':
