@@ -142,6 +142,8 @@ def mapInterchromosome():
             print command
             subprocess.check_call(command, shell=True)
     
+    
+    readsPresent = False
     if len(job['input']['mappings_tables']) == 1:
         if checkSamContainsRead("input.0.sam"):
             readsPresent = True
