@@ -58,7 +58,7 @@ def main():
             'mappings_tables': job['input']['mappings'],
             'interval': commandList[i],
             'job_number' : i,
-            'separate_read_groups' : job['input']['separate_read_groups']
+            'separate_read_groups' : job['input']['separate_read_groups']            
             }
             interchromosomeJobId = dxpy.new_dxjob(fn_input=mapInterchromosomeInput, fn_name="mapInterchromosome").get_id()
             reduceInterchromosomeInput["mapJob"+str(i)] = {'job': interchromosomeJobId, 'field': 'file_id'}
@@ -67,6 +67,7 @@ def main():
         #Make a reduce job for the interchromosome component
         reduceInterchromosomeInput["file_list"] =  bamFiles
         reduceInterchromosomeInput["interval"] = commandList
+        reduceInterchromosomeInput["discard_duplicates"] = job['input']['discard_duplicates']
         reduceJobId = dxpy.new_dxjob(fn_input=reduceInterchromosomeInput, fn_name="reduceInterchromosome").get_id()
     else:
         interchromosomeJobField = ''
@@ -84,6 +85,7 @@ def main():
             'reference': job['input']['reference']['$dnanexus_link'],
             'dbsnp': job['input']['dbsnp'],
             'separate_read_groups' : job['input']['separate_read_groups'],
+            'discard_duplicates': job['input']['discard_duplicates'],
             'parent_input': job['input']
         }
         if 'known_indels' in job['input']:
@@ -173,8 +175,8 @@ def reduceInterchromosome():
         for x in job['input']['file_list']:
             dxpy.DXFile(x).close()
     else:
-        subprocess.check_call(command, shell=True)
-        subprocess.check_call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=merge.bam O=dedup.bam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT", shell=True)
+        subprocess.check_call(command, shell=True)        
+        subprocess.check_call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=merge.bam O=dedup.bam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT REMOVE_DUPLICATES=%s" % job['input']['discard_duplicates'], shell=True)
         #subprocess.check_call("samtools view -bS dedup.sam > dedup.bam", shell=True)
         subprocess.check_call("samtools index dedup.bam", shell=True)
         for i in range(len(job['input']['interval'])):
@@ -243,7 +245,7 @@ def mapBestPractices():
     
     if readsPresent:
         subprocess.check_call(command, shell=True)
-        subprocess.check_call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=input.sam O=dedup.sam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT", shell=True)
+        subprocess.check_call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=input.sam O=dedup.sam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT REMOVE_DUPLICATES=%s" % job["input"]["discard_duplicates"], shell=True)
         startTime = time.time()
         subprocess.check_call("samtools view -bS dedup.sam > dedup.bam", shell=True)
         print "Conversion to BAM completed in " + str(int((time.time()-startTime)/60)) + " minutes"
