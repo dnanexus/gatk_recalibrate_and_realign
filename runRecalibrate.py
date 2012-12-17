@@ -258,7 +258,6 @@ def mapBestPractices():
         return
     
     ##THIS SEGMENT PROCEEDS AFTER MARKDUPLICATES COMPLETES
-    timeout = 60*60*10
     sleepTime = 10
     sleepCounter = 0
     startTime = time.time()
@@ -270,8 +269,6 @@ def mapBestPractices():
                 if interchromosomeBam.describe()['state'] != 'closed':
                     time.sleep(sleepTime)
                     sleepCounter += sleepTime
-                    if sleepCounter > timeout:
-                        raise dxpy.AppError("Waited too long for the interchromosome job to finish")
                 else:
                     print "Waited " + str(sleepTime/60) + " minutes for interchromosome job"
                     dxpy.download_dxfile(interchromosomeBamId, "interchromosomeBam.bam")
