@@ -494,7 +494,7 @@ def mapBestPractices():
                         mateLocations[templateId] = {0: {"lo":lo, "hi":hi, "chr":chr}}
                     elif int(tabSplit[1]) & 0x1 & 0x80:
                         mateLocations[templateId] = {1: {"lo":lo, "hi":hi, "chr":chr}}
-    print str(len(mateLocations)) + " Interchromosomal reads changed lo or hi"
+        print str(len(mateLocations)) + " Interchromosomal reads changed lo or hi"
     print "Interchromosome changes to lo and hi recorded in " + str(int((time.time()-startTime)/60)) + " minutes"
                         
     complement_table = string.maketrans("ATGCatgc", "TACGtacg")
