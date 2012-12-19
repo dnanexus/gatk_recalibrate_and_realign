@@ -104,7 +104,7 @@ def main():
 def reduceBestPractices():
     startTime = time.time()
     recalibratedTable = dxpy.DXGTable(job['input']['recalibrated_table'])
-    recalibratedTable.close(block=True)
+    recalibratedTable.close()
     print "Table closing completed in " + str(int((time.time()-startTime)/60)) + " minutes"
     job['output']['recalibrated_table'] = dxpy.dxlink(recalibratedTable.get_id())
 
