@@ -169,6 +169,7 @@ def reduceInterchromosome():
     while "mapJob"+str(i) in job["input"]:
         if job["input"]["mapJob"+str(i)] != '':
             command += " INPUT=input."+str(i+1)+".bam"
+            dxpy.DXFile(job["input"]["mapJob"+str(i)]).wait_on_close()
             dxpy.download_dxfile(job["input"]["mapJob"+str(i)], "input."+str(i+1)+".bam")
             noFiles = False
         i+=1
