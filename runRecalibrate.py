@@ -154,6 +154,7 @@ def mapInterchromosome():
             if checkSamContainsRead("input."+str(i)+".sam"):
                 command += " INPUT=input."+str(i)+".sam"
                 readsPresent = True
+        subprocess.check_call(command, shell=True)
     if readsPresent:
         subprocess.check_call("samtools view -bS output.sam > output.bam", shell=True)
         fileId = dxpy.upload_local_file("output.bam").get_id()
