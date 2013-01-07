@@ -672,8 +672,11 @@ def createNewTable(mappingsArray, recalibratedName):
     tags = []
     indices = []
     types = []
+    read_groups = []
     for i in range(len(mappingsArray)):
-        oldTable = dxpy.DXGTable(mappingsArray[i]['$dnanexus_link'])        
+        oldTable = dxpy.DXGTable(mappingsArray[i]['$dnanexus_link'])
+        if oldTable.get_details()['read_groups'] != None:
+            read_groups.extend(oldTable.get_details()['read_groups'])
         for x in oldTable.describe()['columns']:
             if x not in columns:
                 columns.append(x)
@@ -713,14 +716,11 @@ def createNewTable(mappingsArray, recalibratedName):
                               {"name": "negative_strand2", "type": "boolean"},
                               {"name": "proper_pair", "type": "boolean"}])
 
-    print "schema"
-    print schema
-
-
     oldTable = dxpy.DXGTable(mappingsArray[0]['$dnanexus_link'])
     if recalibratedName == '':
         recalibratedName = oldTable.describe()['name'] + " Realigned and Recalibrated"        
-    details = oldTable.get_details()    
+    details = oldTable.get_details()
+    details['read_groups'] = read_groups
     newTable = dxpy.new_dxgtable(columns=schema, indices=indices)
     newTable.add_tags(tags)
     newTable.set_details(details)
