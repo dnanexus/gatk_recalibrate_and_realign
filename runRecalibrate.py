@@ -37,7 +37,7 @@ def main():
     for x in job['input']['mappings']:
         table = dxpy.DXGTable(x)
         reads += int(table.describe()['length'])
-    chunks = int(reads/job['input']['reads_per_job'])+2
+    chunks = int(reads/job['input']['reads_per_job'])+1
     #chunks = 5
 
     #Split the genome into chunks to parallelize
@@ -50,8 +50,8 @@ def main():
     #This is a Picard Mark Duplicates job run only on interchromosomal mappings in the case that the genome is split into regions
     #This is necessary because Mark Duplicates has to look at both mates in a read pair, so interchromosomal mappings must go together
     reduceInterchromosomeInput = {}
-    if chunks > 1:
-        bamFiles = []
+    bamFiles = []
+    if chunks > 1 and job['input']['deduplicate_interchromosomal_pairs']:
         for i in xrange(-1, chunks):
             bamFiles.append(dxpy.new_dxfile().get_id())
             mapInterchromosomeInput = {
@@ -69,8 +69,10 @@ def main():
         reduceInterchromosomeInput["interval"] = commandList
         reduceInterchromosomeInput["discard_duplicates"] = job['input']['discard_duplicates']
         reduceJobId = dxpy.new_dxjob(fn_input=reduceInterchromosomeInput, fn_name="reduceInterchromosome").get_id()
+        deduplicateInterchromosome = True
     else:
         interchromosomeJobField = ''
+        deduplicateInterchromosome = False
     
     #This runs the Picard Mark Duplicates program to deduplicate the reads
     reduceInput = {}
@@ -86,7 +88,8 @@ def main():
             'dbsnp': job['input']['dbsnp'],
             'separate_read_groups' : job['input']['separate_read_groups'],
             'discard_duplicates': job['input']['discard_duplicates'],
-            'parent_input': job['input']
+            'parent_input': job['input'],
+            'deduplicate_interchromosome': deduplicateInterchromosome
         }
         if 'known_indels' in job['input']:
             mapBestPracticesInput['known_indels'] = job['input']['known_indels']
@@ -263,7 +266,7 @@ def mapBestPractices():
     sleepTime = 10
     sleepCounter = 0
     startTime = time.time()
-    if jobNumber >  -1:
+    if jobNumber >  -1 and job['input']['deduplicate_interchromosome']:
         if job['input']['file_list'][jobNumber] != '':
             interchromosomeBamId = job['input']['file_list'][jobNumber]
             interchromosomeBam = dxpy.DXFile(interchromosomeBamId)
@@ -277,6 +280,9 @@ def mapBestPractices():
                     print "Interchromosome BAM: " + interchromosomeBam.get_id()
                     print "Download interchromosome BAM in " + str(int((time.time()-startTime)/60)) + " minutes"
                     break
+                
+                
+                
     print "dedup file:" + dxpy.upload_local_file("dedup.bam").get_id()
     
     if job['input']['file_list'][jobNumber] != '':
