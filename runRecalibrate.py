@@ -285,7 +285,9 @@ def mapBestPractices():
                 
     print "dedup file:" + dxpy.upload_local_file("dedup.bam").get_id()
     
-    if job['input']['file_list'][jobNumber] != '':
+    if job['input']['file_list'] == []:
+        subprocess.check_call("mv dedup.bam input.bam", shell=True)
+    elif job['input']['file_list'][jobNumber] != '':
         subprocess.check_call("java -Xmx4g net.sf.picard.sam.MergeSamFiles SORT_ORDER=coordinate USE_THREADING=true INPUT=dedup.bam INPUT=interchromosomeBam.bam OUTPUT=input.bam VALIDATION_STRINGENCY=SILENT", shell=True)
     else:
         subprocess.check_call("mv dedup.bam input.bam", shell=True)
