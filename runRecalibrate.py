@@ -297,7 +297,7 @@ def mapBestPractices():
 
     #Download the Reference Genome
     print "Converting Contigset to Fasta"
-    subprocess.check_call("contigset2fasta %s ref.fa" % (job['input']['reference']), shell=True)
+    subprocess.check_call("dx-contigset-to-fasta %s ref.fa" % (job['input']['reference']), shell=True)
     
     #RealignerTargetCreator
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T RealignerTargetCreator -R ref.fa -I input.bam -o indels.intervals "
