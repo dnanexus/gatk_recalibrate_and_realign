@@ -2,7 +2,6 @@
   "name": "recalibrate_and_realign",
   "title": "GATK Indel Realignment and Quality Recalibration",
   "summary": "Performs the Broad Institute's best practices in SNP and Indel calling v3.",
-  "description": "This app applies a number of recalculations to a mappings object in order to improve the quality of variant calls. This follows the Broad Institutes recommendations for best practices in variant calling. Mappings are deduplicated, realigned around sites of known indels, and their quality is recalibrated by looking at covariance in quality metrics with frequently observed variation in the genome.",
   "dxapi": "1.0.0",
   "inputSpec": [
     {"name": "mappings", "class": "array:gtable", "label":"Mappings Table(s)", "help":"The mapped reads which will be deduplicated", "type": "LetterMappings"},
@@ -11,9 +10,9 @@
     {"name": "dbsnp", "class": "file", "label":"dbSNP", "help":"The dbsnp database in tar.gz format"},
     {"name": "known_indels", "class": "array:file", "label":"Known Indels", "help":"Variant objects containing known indels to use in the process of realigning around the sites of known indels", "optional":true},
     {"name": "reads_per_job", "class": "int", "label": "Reads per Job", "help": "Controls the degree of parallelism. The number of jobs created to run the program will be the total number of reads divided by this", "default": 25000000},
-    {"name": "separate_read_groups", "class": "boolean", "label":"Separate Read Groups", "default":true, "help":"If selected, the mappings in different mappings tables will be treated as belonging to different read groups. This should only be unchecked when reads from the same read group were separately uploaded and mapped to different mappings tables"}, 
-    {"name": "discard_duplicates", "class": "boolean", "label":"Discard Duplicate Reads", "default":true, "help":"If selected, duplicate mappings will be discarded during the mark duplicates step"}, 
-    {"name": "deduplicate_interchromosomal_pairs", "class": "boolean", "label":"Deduplicate Interchromosomal Pairs", "default":false, "help":"If selected, the app will run additional jobs to handle deduplication of reads whose mates are mapped interchromosomally. WARNING: This option increases the run time and cost substantially"}, 
+    {"name": "separate_read_groups", "class": "boolean", "label":"Separate Read Groups", "default":true, "help":"If selected, the mappings in different mappings tables will be treated as belonging to different read groups. This should only be unchecked when reads from the same read group were separately uploaded and mapped to different mappings tables"},
+    {"name": "discard_duplicates", "class": "boolean", "label":"Discard Duplicate Reads", "default":true, "help":"If selected, duplicate mappings will be discarded during the mark duplicates step"},
+    {"name": "deduplicate_interchromosomal_pairs", "class": "boolean", "label":"Deduplicate Interchromosomal Pairs", "default":false, "help":"If selected, the app will run additional jobs to handle deduplication of reads whose mates are mapped interchromosomally. WARNING: This option increases the run time and cost substantially"},
 
 
     {"name": "max_interval_size", "class":"int", "label": "Max Interval Size", "default":500, "help": "Intervals larger than this will not be used in indel realignment"},
@@ -49,7 +48,7 @@
     {"name": "smoothing", "class":"int", "label":"Smoothing Counts", "optional":true, "help":"Number of imaginary counts to add to each bin in order to smooth out binds with few data points"},
     {"name": "max_quality", "class":"int", "label":"Maximum Quality Score", "optional":true, "help":"The value at which to cap the quality scores"}
 
-  
+
   ],
   "outputSpec": [
     {"name": "recalibrated_mappings", "class": "gtable", "type": {"$and": ["LetterMappings", "Mappings", "gri"]}}
