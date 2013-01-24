@@ -1,5 +1,5 @@
 {
-  "name": "recalibrate_and_realign",
+  "name": "gatk_recalibrate_and_realign",
   "title": "GATK Indel Realignment and Quality Recalibration",
   "summary": "Performs the Broad Institute's best practices in SNP and Indel calling v3.",
   "dxapi": "1.0.0",
