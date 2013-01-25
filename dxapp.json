@@ -1,14 +1,14 @@
 {
   "name": "gatk_recalibrate_and_realign",
   "title": "GATK Indel Realignment and Quality Recalibration",
-  "summary": "Performs the Broad Institute's best practices in SNP and Indel calling v3.",
+  "summary": "Deduplicates, realigns, and recalibrates a Mappings object in order to improve the quality of downstream variant calls",
   "dxapi": "1.0.0",
   "inputSpec": [
-    {"name": "mappings", "class": "array:gtable", "label":"Mappings Table(s)", "help":"The mapped reads which will be deduplicated", "type": "LetterMappings"},
-    {"name": "reference", "class": "record", "label":"Reference Genome", "help":"The reference genome used to align the mappings", "type": "ContigSet"},
-    {"name": "output_name", "class": "string", "label":"Output Name", "help":"The name of the deduplicated table", "optional": true},
-    {"name": "dbsnp", "class": "file", "label":"dbSNP", "help":"The dbsnp database in tar.gz format"},
-    {"name": "known_indels", "class": "array:file", "label":"Known Indels", "help":"Variant objects containing known indels to use in the process of realigning around the sites of known indels", "optional":true},
+    {"name": "mappings", "class": "array:gtable", "label":"Mappings table(s)", "help":"The Mappings table objects that will be deduplicated, realigned, and recalibrated.", "type": "LetterMappings"},
+    {"name": "reference", "class": "record", "label":"Reference genome", "help":"The reference genome used to align the mappings", "type": "ContigSet"},
+    {"name": "output_name", "class": "string", "label":"Output name", "help":"The name of the resulting Mappings table object (optional; if not provided, the output will be named after the input)", "optional": true},
+    {"name": "dbsnp", "class": "file", "label":"dbSNP", "help":"The dbSNP database in vcf.gz format (indexed using bgzip). For the b37 and hg19 genomes, you can find a file appropriate for this input, in the \"Reference Genomes\" project, \"b37/GATK helpers\" and \"hg19/GATK helpers\" subfolders."},
+    {"name": "known_indels", "class": "array:file", "label":"Known Indels", "help":"VCF files (compressed optionally) containing known indels to use in the process of realigning around the sites of known indels. For the b37 and hg19 genomes, you can find files appropriate for this input, in the \"Reference Genomes\" project, \"b37/GATK helpers\" and \"hg19/GATK helpers\" subfolders", "optional":true},
     {"name": "reads_per_job", "class": "int", "label": "Reads per Job", "help": "Controls the degree of parallelism. The number of jobs created to run the program will be the total number of reads divided by this", "default": 25000000},
     {"name": "separate_read_groups", "class": "boolean", "label":"Separate Read Groups", "default":true, "help":"If selected, the mappings in different mappings tables will be treated as belonging to different read groups. This should only be unchecked when reads from the same read group were separately uploaded and mapped to different mappings tables"},
     {"name": "discard_duplicates", "class": "boolean", "label":"Discard Duplicate Reads", "default":true, "help":"If selected, duplicate mappings will be discarded during the mark duplicates step"},
@@ -55,9 +55,9 @@
   ],
   "runSpec":
     {"file": "runRecalibrate.py", "interpreter": "python2.7_old", "execDepends": [{"name": "openjdk-6-jre-headless"}, {"name":"tabix"}, {"name":"pypy"}]},
-  "version": "0.0.191",
+  "version": "0.0.192",
   "categories": [
-    "Quality filter"
+    "Variation calling", "Alignment"
   ],
   "details":{
     "upstreamAuthor": "Broad Institute",
