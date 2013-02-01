@@ -37,7 +37,7 @@ import subprocess, logging
 import os, sys, re, math, operator, time
 from multiprocessing import Pool, cpu_count
 
-def main():    
+def main():
     ## RUN DEDUPLICATE
     os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/MergeSamFiles.jar'
 
@@ -49,15 +49,15 @@ def main():
     recalibratedTable = createNewTable(job['input']['mappings'], outputName)
     #print "Mappings Table: " + mappingsTable.get_id()
     print "Recalibrated Table: " + recalibratedTable.get_id()
-    
+
     mappingsTable = dxpy.DXGTable(job['input']['mappings'][0]['$dnanexus_link'])
     try:
         contigSetId = mappingsTable.get_details()['original_contigset']['$dnanexus_link']
         originalContigSet = mappingsTable.get_details()['original_contigset']
     except:
         raise dxpy.AppError("The original reference genome must be attached as a detail")
-        
-    reads = 0   
+
+    reads = 0
     for x in job['input']['mappings']:
         table = dxpy.DXGTable(x)
         reads += int(table.describe()['length'])
@@ -70,7 +70,7 @@ def main():
 
     excludeInterchromosome = (chunks > 1)
     markDuplicatesJobs = []
-    
+
     #This is a Picard Mark Duplicates job run only on interchromosomal mappings in the case that the genome is split into regions
     #This is necessary because Mark Duplicates has to look at both mates in a read pair, so interchromosomal mappings must go together
     reduceInterchromosomeInput = {}
@@ -82,12 +82,12 @@ def main():
             'mappings_tables': job['input']['mappings'],
             'interval': commandList[i],
             'job_number' : i,
-            'separate_read_groups' : job['input']['separate_read_groups']            
+            'separate_read_groups' : job['input']['separate_read_groups']
             }
             interchromosomeJobId = dxpy.new_dxjob(fn_input=mapInterchromosomeInput, fn_name="mapInterchromosome").get_id()
             reduceInterchromosomeInput["mapJob"+str(i)] = {'job': interchromosomeJobId, 'field': 'file_id'}
         #interchromosomeJobField = { 'job': interchromosomeJobId, 'field': 'bam'}
-        
+
         #Make a reduce job for the interchromosome component
         reduceInterchromosomeInput["file_list"] =  bamFiles
         reduceInterchromosomeInput["interval"] = commandList
@@ -97,7 +97,7 @@ def main():
     else:
         interchromosomeJobField = ''
         deduplicateInterchromosome = False
-    
+
     #This runs the Picard Mark Duplicates program to deduplicate the reads
     reduceInput = {}
     for i in range(len(commandList)):
@@ -117,8 +117,8 @@ def main():
         }
         if 'known_indels' in job['input']:
             mapBestPracticesInput['known_indels'] = job['input']['known_indels']
-        
-        
+
+
         mapJobId = dxpy.new_dxjob(fn_input=mapBestPracticesInput, fn_name="mapBestPractices").get_id()
         reduceInput["mapJob" + str(i)] = {'job': mapJobId, 'field': 'ok'}
     reduceInput["recalibrated_table"] = recalibratedTable.get_id()
@@ -150,11 +150,11 @@ def writeUnmappedReads(mappingsTable, dedupTable):
 
 def mapInterchromosome():
     os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/SortSam.jar:/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
-    
+
     regionFile = open("regions.txt", 'w')
     regionFile.write(job['input']['interval'])
     regionFile.close()
-    
+
     jobNumber = job['input']['job_number']
     if jobNumber == -1:
         for i in range(len(job['input']['mappings_tables'])):
@@ -168,8 +168,8 @@ def mapInterchromosome():
             command = "pypy /usr/bin/dx_mappings_to_sam2 %s --output input.%d.sam --id_as_name --region_index_offset -1 --region_file regions.txt --read_group_platform illumina --only_interchromosomal_mate --id_prepend %d_" % (mappingsTable, i, i)
             print command
             subprocess.check_call(command, shell=True)
-    
-    
+
+
     readsPresent = False
     if len(job['input']['mappings_tables']) == 1:
         if checkSamContainsRead("input.0.sam"):
@@ -188,7 +188,7 @@ def mapInterchromosome():
         job['output']['file_id'] = fileId
     else:
         job['output']['file_id'] = ''
-    
+
 def reduceInterchromosome():
     os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/SortSam.jar:/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
     i = -1
@@ -201,12 +201,12 @@ def reduceInterchromosome():
             dxpy.download_dxfile(job["input"]["mapJob"+str(i)], "input."+str(i+1)+".bam")
             noFiles = False
         i+=1
-    
+
     if noFiles:
         for x in job['input']['file_list']:
             dxpy.DXFile(x).close()
     else:
-        subprocess.check_call(command, shell=True)        
+        subprocess.check_call(command, shell=True)
         subprocess.check_call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=merge.bam O=dedup.bam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT REMOVE_DUPLICATES=%s" % job['input']['discard_duplicates'], shell=True)
         #subprocess.check_call("samtools view -bS dedup.sam > dedup.bam", shell=True)
         subprocess.check_call("samtools index dedup.bam", shell=True)
@@ -233,11 +233,11 @@ def reduceInterchromosome():
 
 def mapBestPractices():
     os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/SortSam.jar:/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
-    
+
     #mappingsTable = dxpy.open_dxgtable(job['input']['mappings_table_id'])
-    
+
     jobNumber = job['input']['job_number']
-         
+
     regionFile = open("regions.txt", 'w')
     print job['input']['interval']
     regionFile.write(job['input']['interval'])
@@ -262,7 +262,7 @@ def mapBestPractices():
 
 
     readsPresent = False
-    
+
     if len(job['input']['mappings_tables']) == 1:
         if checkSamContainsRead("input.0.sam"):
             readsPresent = True
@@ -273,7 +273,7 @@ def mapBestPractices():
             if checkSamContainsRead("input."+str(i)+".sam"):
                 command += " INPUT=input."+str(i)+".sam"
                 readsPresent = True
-    
+
     if readsPresent:
         subprocess.check_call(command, shell=True)
         subprocess.check_call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=input.sam O=dedup.sam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT REMOVE_DUPLICATES=%s" % job["input"]["discard_duplicates"], shell=True)
@@ -285,7 +285,7 @@ def mapBestPractices():
     else:
         job['output']['ok'] = True
         return
-    
+
     ##THIS SEGMENT PROCEEDS AFTER MARKDUPLICATES COMPLETES
     sleepTime = 10
     sleepCounter = 0
@@ -304,11 +304,11 @@ def mapBestPractices():
                     print "Interchromosome BAM: " + interchromosomeBam.get_id()
                     print "Download interchromosome BAM in " + str(int((time.time()-startTime)/60)) + " minutes"
                     break
-                
-                
-                
+
+
+
     print "dedup file:" + dxpy.upload_local_file("dedup.bam").get_id()
-    
+
     if job['input']['file_list'] == []:
         subprocess.check_call("mv dedup.bam input.bam", shell=True)
     elif job['input']['file_list'][jobNumber] != '':
@@ -322,12 +322,12 @@ def mapBestPractices():
     #Download the Reference Genome
     print "Converting Contigset to Fasta"
     subprocess.check_call("dx-contigset-to-fasta %s ref.fa" % (job['input']['reference']), shell=True)
-    
+
     #RealignerTargetCreator
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T RealignerTargetCreator -R ref.fa -I input.bam -o indels.intervals "
     command += job['input']['interval']
     knownIndels = ''
-    
+
     #Download the known indels
     knownCommand = ''
     if 'known_indels' in job['input']:
@@ -341,14 +341,14 @@ def mapBestPractices():
                     knownFileName = "indels"+str(i)+".vcf.gz"
             except subprocess.CalledProcessError:
                 raise dxpy.AppError("An error occurred decompressing dbsnp. Expected dbsnp as a gziped file.")
-            knownCommand += " -known " + knownFileName        
+            knownCommand += " -known " + knownFileName
         command += knownIndels
-    
+
     #Find chromosomes
     regionChromosomes = []
     for x in re.findall("-L ([^:]*):\d+-\d+", job['input']['interval']):
         regionChromosomes.append(x)
-    
+
     #Add options for RealignerTargetCreator
     if job['input']['parent_input']['window_size'] != 10:
         command += "--windowSize " + str(job['input']['parent_input']['window_size'])
@@ -361,7 +361,7 @@ def mapBestPractices():
 
     print command
     subprocess.check_call(command, shell=True)
-    
+
     #Run the IndelRealigner
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T IndelRealigner -R ref.fa -I input.bam -targetIntervals indels.intervals -o realigned.bam"
     command += job['input']['interval']
@@ -386,15 +386,15 @@ def mapBestPractices():
         command += " --maxReadsForConsensus " + str(job['input']['parent_input']['maxReadsForRealignment'])
     if job['input']['parent_input']['max_reads_realignment'] != 20000:
         command += " --maxReadsForRealignment " + str(job['input']['parent_input']['max_reads_realignment'])
-    
+
     print command
     subprocess.check_call(command, shell=True)
-    
+
     #Download dbsnp
     startTime = time.time()
     dxpy.download_dxfile(job['input']['dbsnp'], "dbsnp.vcf.gz")
     print "Download dbsnp completed in " + str(int((time.time()-startTime)/60)) + " minutes"
-    
+
     dbsnpFileName = 'dbsnp.vcf.gz'
     try:
         p = subprocess.Popen("tabix -f -p vcf dbsnp.vcf.gz", stderr=subprocess.PIPE, shell=True)
@@ -403,7 +403,7 @@ def mapBestPractices():
             dbsnpFileName = 'dbsnp.vcf'
     except subprocess.CalledProcessError:
         raise dxpy.AppError("An error occurred decompressing dbsnp. Expected dbsnp as a gziped file.")
-    
+
     #subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
 
     #Count Covariates
@@ -411,7 +411,7 @@ def mapBestPractices():
     command += " -knownSites " + dbsnpFileName
     command += job['input']['interval']
     command += " --num_threads " + str(cpu_count())
-    
+
     if "solid_recalibration_mode" in job['input']['parent_input']:
         if job['input']['parent_input']['solid_recalibration_mode'] != "":
             if job['input']['parent_input']['solid_recalibration_mode'] == "THROW_EXCEPTION" or job['input']['parent_input']['solid_recalibration_mode'] == "LEAVE_READ_UNRECALIBRATED" or job['input']['parent_input']['solid_recalibration_mode'] == "PURGE_READ":
@@ -449,7 +449,7 @@ def mapBestPractices():
 
     print command
     subprocess.check_call(command, shell=True)
-    
+
     #Table Recalibration
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T TableRecalibration -R ref.fa -recalFile recalibration.csv -I realigned.bam -o recalibrated.bam --doNotWriteOriginalQuals"
     command += job['input']['interval']
@@ -471,14 +471,14 @@ def mapBestPractices():
         command += " --max_quality_score " + str(job['input']['parent_input']['max_quality'])
     print command
     subprocess.check_call(command, shell=True)
-    
+
     subprocess.check_call("samtools view -h -o recalibrated.sam recalibrated.bam", shell=True)
-    
+
     result = dxpy.upload_local_file("recalibrated.bam")
     job['output']['recalibrated_bam'] = dxpy.dxlink(result.get_id())
     print "Recalibrated file: " + result.get_id()
 
-    
+
 
     #Read SAM, extracting chr, lo, hi, qual, cigar, duplicate flag, chr2, lo2, hi2
 
@@ -519,7 +519,7 @@ def mapBestPractices():
                     if c == 'M' or c == 'D' or c == 'N' or c == 'X' or c == 'P' or c == '=':
                         alignLength += int(cigar[p-1])
                 hi = lo + alignLength
-                
+
                 recalibrationTags = re.findall("zd:Z:([^\t]*)[\t\n]", line)[0].split("##&##")
                 reportedLo = int(recalibrationTags[1])
                 reportedHi = int(recalibrationTags[2])
@@ -530,10 +530,10 @@ def mapBestPractices():
                         mateLocations[templateId] = {1: {"lo":lo, "hi":hi, "chr":chr}}
         print str(len(mateLocations)) + " Interchromosomal reads changed lo or hi"
     print "Interchromosome changes to lo and hi recorded in " + str(int((time.time()-startTime)/60)) + " minutes"
-                        
+
     complement_table = string.maketrans("ATGCatgc", "TACGtacg")
     rowsWritten = 0
-    
+
     startTime = time.time()
     for line in open("recalibrated.sam", 'r'):
         if line[0] != "@":
@@ -549,10 +549,10 @@ def mapBestPractices():
             duplicate = (flag & 0x400 == True)
             sequence = tabSplit[9]
             recalibrationTags = re.findall("zd:Z:([^\t]*)[\t\n]", line)[0].split("##&##")
-            
-            name = recalibrationTags[0]            
+
+            name = recalibrationTags[0]
             readGroup = int(re.findall("RG:Z:(\d+)", line)[0])
-            
+
             if flag & 0x4:
                 status = "UNMAPPED"
             elif flag & 0x100:
@@ -576,7 +576,7 @@ def mapBestPractices():
                     alignLength += int(cigar[p-1])
             cigar = tabSplit[5]
             hi = lo + alignLength
-            
+
             if recalibratedCol.get("chr2") != None:
                 properPair=False
                 if (flag & 0x1) and (flag & 0x2):
@@ -593,7 +593,7 @@ def mapBestPractices():
                     negativeStrand2 = True
                 else:
                     negativeStrand2 = False
-                
+
                 if flag & 0x1:
                     if flag & 0x40:
                         mateId = 0
@@ -601,9 +601,9 @@ def mapBestPractices():
                         mateId = 1
                 else:
                     mateId = -1
- 
+
                 try:
-                    if mateId == 1:                
+                    if mateId == 1:
                         chr2 = mateLocations[tabSplit[0]][0]["chr2"]
                         lo2 = mateLocations[tabSplit[0]][0]["lo"]
                         hi2 = mateLocations[tabSplit[0]][0]["hi"]
@@ -635,10 +635,10 @@ def splitGenomeLengthChromosome(contig_set, chunks):
     sizes = details['contigs']['sizes']
     names = details['contigs']['names']
     offsets = details['contigs']['offsets']
-    
+
     commandList = []
     chunkSizes = []
-    
+
     totalSize = sum(sizes)
     readsPerChunk = int(float(totalSize)/chunks)
 
@@ -699,7 +699,7 @@ def checkSamContainsRead(samFileName):
 
 
 def createNewTable(mappingsArray, recalibratedName):
-    
+
     columns = []
     tags = []
     indices = []
@@ -721,7 +721,7 @@ def createNewTable(mappingsArray, recalibratedName):
         for x in oldTable.describe()['types']:
             if x not in types:
                 types.append(x)
-    
+
     print "combined columns"
     print columns
 
@@ -750,7 +750,7 @@ def createNewTable(mappingsArray, recalibratedName):
 
     oldTable = dxpy.DXGTable(mappingsArray[0]['$dnanexus_link'])
     if recalibratedName == '':
-        recalibratedName = oldTable.describe()['name'] + " Realigned and Recalibrated"        
+        recalibratedName = oldTable.describe()['name'] + " Realigned and Recalibrated"
     details = oldTable.get_details()
     details['read_groups'] = read_groups
     newTable = dxpy.new_dxgtable(columns=schema, indices=indices)
@@ -758,6 +758,6 @@ def createNewTable(mappingsArray, recalibratedName):
     newTable.set_details(details)
     newTable.add_types(types)
     newTable.rename(recalibratedName)
-    
+
     return newTable
 

@@ -41,7 +41,7 @@ parser = argparse.ArgumentParser(description="Export Mappings gtable to SAM form
 parser.add_argument("mappings_id", help="Mappings table id to read from")
 parser.add_argument("--output", dest="file_name", default=None, help="Name of file to write SAM to.  If not given SAM file will be printed to stdout.")
 parser.add_argument("--start_row", dest="start_row", type=int, default=0, help="If restricting by the id of the gtable row, which id to start at. Selecting regions will override this option")
-parser.add_argument("--end_row", dest="end_row", type=int, default=0, help="If restricting by the id of the gtable row, which id to start at. Selecting regions will override this option")                  
+parser.add_argument("--end_row", dest="end_row", type=int, default=0, help="If restricting by the id of the gtable row, which id to start at. Selecting regions will override this option")
 parser.add_argument("--region_index_offset", dest="region_index_offset", type=int, default = 0, help="Adjust regions by this amount. Useful for converting between zero and one indexed lists")
 parser.add_argument("--region_file", dest="region_file", default="", help="Regions to extract mappings for, in the format ChrX:A-B")
 parser.add_argument("--id_as_name", dest="id_as_name", action="store_true", default=False, help="Use the template_id instead of the name when writing the SAM")
@@ -67,7 +67,7 @@ def main(**kwargs):
     if opts.mappings_id == None:
         parser.print_help()
         sys.exit(1)
-    
+
     mappingsTable = dxpy.DXGTable(opts.mappings_id)
     idAsName = opts.id_as_name
     idPrepend = opts.id_prepend
@@ -75,15 +75,15 @@ def main(**kwargs):
     addToReadGroup = opts.add_to_read_group
     if opts.only_unmapped:
         opts.include_unmapped = True
-    
+
     paired = "chr2" in mappingsTable.get_col_names()
 
     regions = []
     if opts.region_file != "":
         regions = re.findall("-L ([^:]*):(\d+)-(\d+)", open(opts.region_file, 'r').read())
-    
+
     name = mappingsTable.describe()['name']
-    
+
     if opts.reference != None:
         originalContig = opts.reference
     else:
@@ -91,7 +91,7 @@ def main(**kwargs):
             originalContig = mappingsTable.get_details()['original_contigset']['$dnanexus_link']
         except:
             raise dxpy.AppError("The original reference genome must be attached to mappings table")
-    
+
     try:
         contigDetails = dxpy.DXRecord(originalContig).get_details()['contigs']
     except:
@@ -99,7 +99,7 @@ def main(**kwargs):
 
     contigNames = contigDetails['names']
     contigSizes = contigDetails['sizes']
-    
+
     if opts.file_name != None:
         outputFile = open(opts.file_name, 'w')
     else:
@@ -135,29 +135,29 @@ def main(**kwargs):
             sam_col_names.append(c['name'])
             sam_col_types[c['name']] = c['type']
 
-    defaultCol = {"sequence":"", 
-                  "name":"", 
-                  "quality": "", 
-                  "status": "UNMAPPED", 
-                  "chr":"", 
-                  "lo":0, 
-                  "hi":0, 
-                  "negative_strand":False, 
-                  "error_probability":0, 
-                  "qc_fail":False, 
+    defaultCol = {"sequence":"",
+                  "name":"",
+                  "quality": "",
+                  "status": "UNMAPPED",
+                  "chr":"",
+                  "lo":0,
+                  "hi":0,
+                  "negative_strand":False,
+                  "error_probability":0,
+                  "qc_fail":False,
                   "duplicate":False,
-                  "cigar":"", 
-                  "mate_id":-1, 
-                  "status2":"", 
-                  "chr2":"", 
-                  "lo2":0, 
-                  "hi2":0, 
-                  "negative_strand2":False, 
-                  "proper_pair":False, 
+                  "cigar":"",
+                  "mate_id":-1,
+                  "status2":"",
+                  "chr2":"",
+                  "lo2":0,
+                  "hi2":0,
+                  "negative_strand2":False,
+                  "proper_pair":False,
                   "read_group":0}
 
     #unmappedFile = open("unmapped.txt", 'w')
-        
+
     if len(regions) == 0 and not opts.only_unmapped:
 
         if opts.start_row > mappingsTable.describe()['length']:
@@ -170,7 +170,7 @@ def main(**kwargs):
         else:
             generator = mappingsTable.iterate_rows(start=opts.start_row, want_dict=True)
 
-        # write each row unless we're throwing out unmapped 
+        # write each row unless we're throwing out unmapped
         for row in generator:
             if row["status"] != "UNMAPPED" or opts.discard_unmapped == False:
                 if not paired:
@@ -181,7 +181,7 @@ def main(**kwargs):
                     writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
                 elif opts.no_interchromosomal == False and opts.only_interchromosomal == False:
                     writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
-                
+
 
     elif not opts.only_unmapped:
         for x in regions:
@@ -214,7 +214,7 @@ def main(**kwargs):
                 writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
             elif opts.no_interchromosomal == False and opts.only_interchromosomal == False:
                 writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, addToReadGroup, column_descs, sam_cols, sam_col_names, sam_col_types)
-            
+
 
     if outputFile != None:
         outputFile.close()
@@ -250,18 +250,18 @@ def writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, 
     values.update(row)
 
     flag =  0x1*(values["mate_id"] > -1 and values["mate_id"] <= 1)
-    flag += 0x2*(values["proper_pair"] == True) 
+    flag += 0x2*(values["proper_pair"] == True)
     flag += 0x4*(values["status"] == "UNMAPPED")
-    flag += 0x8*(values["status2"] == "UNMAPPED") 
-    flag += 0x10*(values["negative_strand"] == True) 
+    flag += 0x8*(values["status2"] == "UNMAPPED")
+    flag += 0x10*(values["negative_strand"] == True)
     flag += 0x20*(values["negative_strand2"] == True)
-    flag += 0x40*(values["mate_id"] == 0) 
-    flag += 0x80*(values["mate_id"] == 1) 
+    flag += 0x40*(values["mate_id"] == 0)
+    flag += 0x80*(values["mate_id"] == 1)
     flag += 0x100*(values["status"] == "SECONDARY")
-    flag += 0x200*(values["qc_fail"]) 
+    flag += 0x200*(values["qc_fail"])
     flag += 0x400*(values["duplicate"])
 
-    
+
     chromosome = values["chr"]
     lo = values["lo"]+1
     if values["chr"] == "":
@@ -277,26 +277,26 @@ def writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, 
     if values["chr2"] == "":
         chromosome2 = "*"
         lo2 = 0
-    
+
     if idAsName:
         readName = idPrepend
         readName += str(row["template_id"])
 
     else:
-        readName = values["name"]    
+        readName = values["name"]
         if readName.strip("@") == "":
-            readName = "*"    
-    
+            readName = "*"
+
     if values.get("quality") == None or values.get("quality") == "":
         qual = "*"
     else:
         qual = values["quality"].rstrip('\n')
     seq = values["sequence"]
-    
+
     if values["negative_strand"]:
         seq = reverseComplement(seq)
         qual = qual[::-1]
-    
+
     if values["mate_id"] == -1 or values["chr"] != values["chr2"] or values["chr"] == '' or values["chr"] == '*':
         tlen = 0
     else:
@@ -335,22 +335,22 @@ def writeRow(row, col, defaultCol, outputFile, idAsName, idPrepend, writeRowId, 
                 else:
                     out_row = "\t".join([out_row, row["sam_optional_fields"]])
     '''
-    
-    
+
+
     out_row.append("RG:Z:"+str(values['read_group']+addToReadGroup))
-        
-        
+
+
     #These Tags are used only for printing info for the recalibrator
     #The tag '##&##' is chosen to minimize the chance of a collision with characters in name
     recalibrationTags = "zd:Z:"+str(row["name"])+"##&##"+str(row["lo"])+"##&##"+str(row["hi"])
     if row.get("chr2") != None:
         recalibrationTags += "##&##"+str(row["chr2"])+"##&##"+str(row["lo2"])+"##&##"+str(row["hi2"])+"##&##"+str(row["status2"])
     out_row.append(recalibrationTags)
-        
+
     if writeRowId:
         out_row.append("ZD:Z:"+str(row["__id__"]))
-    
-    
+
+
     out_row = "\t".join(out_row) + "\n"
 
     if outputFile != None:
@@ -365,7 +365,7 @@ def reverseComplement(seq):
     for x in seq[::-1]:
         result += rc.get(x, x)
     return result
-        
+
 
 if __name__ == '__main__':
     main()
