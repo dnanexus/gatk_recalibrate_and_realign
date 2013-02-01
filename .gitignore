@@ -1,0 +1,12 @@
+bamtools/bin/
+bamtools/include/
+bamtools/build/
+bamtools/lib/
+bamtools/src/toolkit/bamtools_version.h
+samtools/*.o
+samtools/*.a
+samtools/samtools
+samtools/bcftools/*.o
+samtools/bcftools/*.a
+resources/usr/bin/bamtools*
+resources/usr/bin/samtools
