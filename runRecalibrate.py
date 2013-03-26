@@ -57,16 +57,20 @@ def main():
     except:
         raise dxpy.AppError("The original reference genome must be attached as a detail")
 
+    if contigSetId != job['input']['reference']['$dnanexus_link']:
+        raise dxpy.AppError("The reference genome of the mappings does not match the provided reference genome")
+
     reads = 0
     for x in job['input']['mappings']:
         table = dxpy.DXGTable(x)
         reads += int(table.describe()['length'])
     chunks = int(reads/job['input']['reads_per_job'])+1
-    #chunks = 5
 
     #Split the genome into chunks to parallelize
     commandList = splitGenomeLengthChromosome(originalContigSet, chunks)
     chunks = len(commandList)
+    if chunks == 1:
+        job['input']['deduplicate_interchromosomal_pairs'] = False
 
     excludeInterchromosome = (chunks > 1)
     markDuplicatesJobs = []
@@ -75,7 +79,7 @@ def main():
     #This is necessary because Mark Duplicates has to look at both mates in a read pair, so interchromosomal mappings must go together
     reduceInterchromosomeInput = {}
     bamFiles = []
-    if chunks > 1 and job['input']['deduplicate_interchromosomal_pairs']:
+    if job['input']['deduplicate_interchromosomal_pairs']:
         for i in xrange(-1, chunks):
             bamFiles.append(dxpy.new_dxfile().get_id())
             mapInterchromosomeInput = {
@@ -247,7 +251,10 @@ def mapBestPractices():
     print "Converting Table to SAM"
     for i in range(len(job['input']['mappings_tables'])):
         mappingsTable = dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_id()
-        command = "pypy /usr/bin/dx_mappings_to_sam2 %s --output input.%d.sam --region_index_offset -1 --id_as_name --region_file regions.txt --no_interchromosomal_mate --write_row_id --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
+        if job['input']['deduplicate_interchromosome']:
+            command = "pypy /usr/bin/dx_mappings_to_sam2 %s --output input.%d.sam --region_index_offset -1 --id_as_name --region_file regions.txt --no_interchromosomal_mate --write_row_id --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
+        else:
+            command = "pypy /usr/bin/dx_mappings_to_sam2 %s --output input.%d.sam --region_index_offset -1 --id_as_name --region_file regions.txt --write_row_id --read_group_platform illumina --id_prepend %d_" % (mappingsTable, i, i)
         if job['input']['separate_read_groups']:
             command += " --add_to_read_group " + str(readGroups)
             readGroups += len(dxpy.DXGTable(job['input']['mappings_tables'][i]['$dnanexus_link']).get_details()['read_groups'])
@@ -255,11 +262,6 @@ def mapBestPractices():
         startTime = time.time()
         subprocess.check_call(command, shell=True)
         print "Download mappings completed in " + str(int((time.time()-startTime)/60)) + " minutes"
-        #subprocess.check_call("java -Xmx4g net.sf.picard.sam.SortSam I=input.sam O=input.sorted.sam SORT_ORDER=coordinate VALIDATION_STRINGENCY=SILENT", shell=True)
-        #subprocess.check_call("mv input.sorted.sam input."+str(i)+".sam", shell=True)
-        #subprocess.check_call("rm input.sam", shell=True)
-        #subprocess.check_call("rm input.sam", shell=True)
-
 
     readsPresent = False
 
