@@ -330,7 +330,7 @@ def mapBestPractices():
     command += job['input']['interval']
     knownIndels = ''
 
-    #Download the known indels
+    # Download the known indels
     knownCommand = ''
     if 'known_indels' in job['input']:
         for i in range(len(job['input']['known_indels'])):
@@ -342,7 +342,7 @@ def mapBestPractices():
                     subprocess.check_call("gzip -d " + knownFileName, shell=True)
                     knownFileName = "indels"+str(i)+".vcf.gz"
             except subprocess.CalledProcessError:
-                raise dxpy.AppError("An error occurred decompressing dbsnp. Expected dbsnp as a gziped file.")
+                raise dxpy.AppError("An error occurred decompressing known indels. Expected known indels as a gzipped file.")
             knownCommand += " -known " + knownFileName
         command += knownIndels
 
@@ -392,7 +392,7 @@ def mapBestPractices():
     print command
     subprocess.check_call(command, shell=True)
 
-    #Download dbsnp
+    # Download dbSNP
     startTime = time.time()
     dxpy.download_dxfile(job['input']['dbsnp'], "dbsnp.vcf.gz")
     print "Download dbsnp completed in " + str(int((time.time()-startTime)/60)) + " minutes"
@@ -404,7 +404,7 @@ def mapBestPractices():
             subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
             dbsnpFileName = 'dbsnp.vcf'
     except subprocess.CalledProcessError:
-        raise dxpy.AppError("An error occurred decompressing dbsnp. Expected dbsnp as a gziped file.")
+        raise dxpy.AppError("An error occurred decompressing dbSNP. Expected dbSNP as a gzipped file.")
 
     #subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
 
