@@ -47,10 +47,18 @@ def main():
     else:
         outputName = ''
     recalibratedTable = createNewTable(job['input']['mappings'], outputName)
+
     #print "Mappings Table: " + mappingsTable.get_id()
     print "Recalibrated Table: " + recalibratedTable.get_id()
 
     mappingsTable = dxpy.DXGTable(job['input']['mappings'][0]['$dnanexus_link'])
+    for x in job['input']['mappings']:
+        if 'quality' not in dxpy.DXGTable(x).get_col_names():
+            if len(job['input']['mappings']) > 1:
+                raise dxpy.AppError("One of the provided mappings did not have quality scores, for example %s. GATK can't recalibrate mappings without quality scores" % dxpy.DXGTable(x).describe()['name'])
+            else:
+                raise dxpy.AppError("The provided mappings did not have quality scores. GATK can't recalibrate mappings without quality scores")
+
     try:
         contigSetId = mappingsTable.get_details()['original_contigset']['$dnanexus_link']
         originalContigSet = mappingsTable.get_details()['original_contigset']
