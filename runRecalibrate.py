@@ -125,6 +125,9 @@ def main():
             'separate_read_groups' : job['input']['separate_read_groups'],
             'discard_duplicates': job['input']['discard_duplicates'],
             'parent_input': job['input'],
+            'intervals_to_include': job['input'].get('intervals_to_process'),
+            'intervals_to_exclude': job['input'].get('intervals_to_exclude'),
+            'intervals_merging': job['input']['intervals_merging'],
             'deduplicate_interchromosome': deduplicateInterchromosome
         }
         if 'known_indels' in job['input']:
@@ -250,6 +253,20 @@ def mapBestPractices():
 
     jobNumber = job['input']['job_number']
 
+    if job['input']['intervals_merging'] != "INTERSECTION" and job["input"].get("intervals_to_include") != None and job["input"].get("intervals_to_include") != "":
+        job['input']['interval'] = splitUserInputRegions(job['input']['interval'], job['input']['intervals_to_include'], "-L")
+        if job['input']['interval'] == '':
+            job['output']['ok'] = True
+            return
+
+    gatkRegionList = ""
+    if job['input']['intervals_merging'] == "INTERSECTION":
+        if job['input'].get('intervals_to_process') != None:
+            gatkRegionList += " " + job['input']['intervals_to_process']
+    if job['input'].get('intervals_to_exclude') != None:
+        gatkRegionList += " " + job['input']['intervals_to_exclude']
+
+
     regionFile = open("regions.txt", 'w')
     print job['input']['interval']
     regionFile.write(job['input']['interval'])
@@ -334,7 +351,7 @@ def mapBestPractices():
     subprocess.check_call("dx-contigset-to-fasta %s ref.fa" % (job['input']['reference']), shell=True)
 
     #RealignerTargetCreator
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T RealignerTargetCreator -R ref.fa -I input.bam -o indels.intervals "
+    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T RealignerTargetCreator -R ref.fa -I input.bam -o indels.intervals %s" % gatkRegionList
     command += job['input']['interval']
     knownIndels = ''
 
@@ -373,7 +390,7 @@ def mapBestPractices():
     subprocess.check_call(command, shell=True)
 
     #Run the IndelRealigner
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T IndelRealigner -R ref.fa -I input.bam -targetIntervals indels.intervals -o realigned.bam"
+    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T IndelRealigner -R ref.fa -I input.bam -targetIntervals indels.intervals -o realigned.bam %s" % gatkRegionList
     command += job['input']['interval']
     command += knownCommand
     if "consensus_model" in job['input']['parent_input']:
@@ -417,7 +434,7 @@ def mapBestPractices():
     #subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
 
     #Count Covariates
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -recalFile recalibration.csv -I realigned.bam -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate --standard_covs"
+    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -recalFile recalibration.csv -I realigned.bam -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate --standard_covs %s" % gatkRegionList
     command += " -knownSites " + dbsnpFileName
     command += job['input']['interval']
     command += " --num_threads " + str(cpu_count())
@@ -461,7 +478,7 @@ def mapBestPractices():
     subprocess.check_call(command, shell=True)
 
     #Table Recalibration
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T TableRecalibration -R ref.fa -recalFile recalibration.csv -I realigned.bam -o recalibrated.bam --doNotWriteOriginalQuals"
+    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T TableRecalibration -R ref.fa -recalFile recalibration.csv -I realigned.bam -o recalibrated.bam --doNotWriteOriginalQuals %s" % gatkRegionList
     command += job['input']['interval']
     if "solid_recalibration_mode" in job['input']['parent_input']:
         if job['input']['parent_input']['solid_recalibration_mode'] != "":
@@ -771,3 +788,17 @@ def createNewTable(mappingsArray, recalibratedName):
 
     return newTable
 
+def splitUserInputRegions(jobRegions, inputRegions, prefix):
+    jobList = re.findall("-L ([^:]*):(\d+)-(\d+)", jobRegions)
+    inputList = re.findall("-L ([^:]*):(\d+)-(\d+)", inputRegions)
+    
+    result = ""
+    for x in inputList:
+        for y in jobList:
+            if(x[0] == y[0]):
+                lo = max(int(x[1]), int(y[1]))
+                hi = min(int(x[2]), int(y[2]))
+                if hi > lo:
+                    result += " %s %s:%d-%d" % (prefix, x[0], lo, hi)
+                    
+    return result

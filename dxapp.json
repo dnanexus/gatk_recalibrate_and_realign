@@ -14,6 +14,9 @@
     {"name": "discard_duplicates", "class": "boolean", "label":"Discard Duplicate Reads", "default":true, "help":"If selected, duplicate mappings will be discarded during the mark duplicates step"},
     {"name": "deduplicate_interchromosomal_pairs", "class": "boolean", "label":"Deduplicate Interchromosomal Pairs", "default":false, "help":"If selected, the app will run additional jobs to handle deduplication of reads whose mates are mapped interchromosomally. WARNING: This option increases the run time and cost substantially"},
 
+    {"name": "intervals_to_process", "class": "string", "label": "Process Intervals", "optional": true, "help": "If given, GATK will only call variants on these regions. Input must be a string of format \"-L chr:lo-hi\" which can have as many -L arguments as desired", "default": ""},
+    {"name": "intervals_to_exclude", "class": "string", "label": "Exclude Intervals", "optional": true, "help": "If given, GATK will not call variants on these regions. Input must be a string of format \"-L chr:lo-hi\" which can have as many -L arguments as desired", "default": ""},
+    {"name": "intervals_merging", "class": "string", "label": "Interval Merge", "help": "If multiple intervals are given, this controls the rules by which they specify regions. Possible options are: \"UNION\" and \"INTERSECTION\". Selecting union will add all regions while intersection will only take regions contained in all of the specified intervals", "default": "UNION"},
 
     {"name": "max_interval_size", "class":"int", "label": "Max Interval Size", "default":500, "help": "Intervals larger than this will not be used in indel realignment"},
     {"name": "min_reads_locus", "class":"int", "label": "Min Reads at Locus", "default":4, "help": "Mimimum reads at a locus to enable using entropy calculation for indel realignment"},
@@ -59,7 +62,7 @@
     "execDepends": [{"name": "openjdk-6-jre-headless"}, {"name":"tabix"}, {"name":"pypy"}],
     "buildDepends": [{"name": "libncurses5-dev"}]
   },
-  "version": "0.0.193",
+  "version": "0.0.194",
   "categories": [
     "Variation calling", "Alignment"
   ],
