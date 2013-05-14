@@ -7,49 +7,60 @@
     {"name": "mappings", "class": "array:gtable", "label":"Mappings table(s)", "help":"The Mappings table objects that will be deduplicated, realigned, and recalibrated.", "type": "LetterMappings"},
     {"name": "reference", "class": "record", "label":"Reference genome", "help":"The reference genome used to align the mappings", "type": "ContigSet"},
     {"name": "output_name", "class": "string", "label":"Output name", "help":"The name of the resulting Mappings table object (optional; if not provided, the output will be named after the input)", "optional": true},
-    {"name": "dbsnp", "class": "file", "label":"dbSNP", "help":"The dbSNP database in vcf.gz format (indexed using bgzip). For the b37 and hg19 genomes, you can find a file appropriate for this input, in the \"Reference Genomes\" project, \"b37/GATK helpers\" and \"hg19/GATK helpers\" subfolders."},
-    {"name": "known_indels", "class": "array:file", "label":"Known Indels", "help":"VCF files (compressed optionally) containing known indels to use in the process of realigning around the sites of known indels. For the b37 and hg19 genomes, you can find files appropriate for this input, in the \"Reference Genomes\" project, \"b37/GATK helpers\" and \"hg19/GATK helpers\" subfolders", "optional":true},
-    {"name": "reads_per_job", "class": "int", "label": "Reads per Job", "help": "Controls the degree of parallelism. The number of jobs created to run the program will be the total number of reads divided by this", "default": 25000000},
-    {"name": "separate_read_groups", "class": "boolean", "label":"Separate Read Groups", "default":true, "help":"If selected, the mappings in different mappings tables will be treated as belonging to different read groups. This should only be unchecked when reads from the same read group were separately uploaded and mapped to different mappings tables"},
-    {"name": "discard_duplicates", "class": "boolean", "label":"Discard Duplicate Reads", "default":true, "help":"If selected, duplicate mappings will be discarded during the mark duplicates step"},
-    {"name": "deduplicate_interchromosomal_pairs", "class": "boolean", "label":"Deduplicate Interchromosomal Pairs", "default":false, "help":"If selected, the app will run additional jobs to handle deduplication of reads whose mates are mapped interchromosomally. WARNING: This option increases the run time and cost substantially"},
+    
+    {"name": "dbSNP", "class": "file", "label":"dbSNP", "optional":true, "help":"The dbSNP database in vcf.gz format (indexed using bgzip).",
+      "suggestions": [{"name": "b37 dbSNP", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/b37/GATK helpers/dbSNP"},
+                       {"name": "hg19 dbSNP", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/hg19/GATK helpers/dbSNP"}],
+      "patterns": ["*.vcf.gz"]
+    },
+      
+    {"name": "known_indels", "class": "array:file", "label":"Known Indels", "optional":true, "help":"VCF files (compressed optionally) containing known indels to use in the process of realigning around the sites of known indels.",
+      "suggestions": [{"name": "b37 Known Indels", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/b37/GATK helpers/Known Indels"},
+                       {"name": "hg19 Known Indels", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/hg19/GATK helpers/Known Indels"}],
+      "patterns": ["*.vcf.gz"]
+    },
+    
+    {"name": "reads_per_job", "group": "Advanced Inputs", "class": "int", "label": "Reads per Job", "help": "Controls the degree of parallelism. The number of jobs created to run the program will be the total number of reads divided by this", "default": 25000000},
+    {"name": "separate_read_groups", "group": "Advanced Inputs", "class": "boolean", "label":"Separate Read Groups", "default":true, "help":"If selected, the mappings in different mappings tables will be treated as belonging to different read groups. This should only be unchecked when reads from the same read group were separately uploaded and mapped to different mappings tables"},
+    {"name": "discard_duplicates", "group": "Mark Duplicates", "class": "boolean", "label":"Discard Duplicate Reads", "default":true, "help":"If selected, duplicate mappings will be discarded during the mark duplicates step"},
+    {"name": "deduplicate_interchromosomal_pairs", "group": "Mark Duplicates", "class": "boolean", "label":"Deduplicate Interchromosomal Pairs", "default":false, "help":"If selected, the app will run additional jobs to handle deduplication of reads whose mates are mapped interchromosomally. WARNING: This option increases the run time and cost substantially"},
 
-    {"name": "intervals_to_process", "class": "string", "label": "Process Intervals", "optional": true, "help": "If given, GATK will only call variants on these regions. Input must be a string of format \"-L chr:lo-hi\" which can have as many -L arguments as desired", "default": ""},
-    {"name": "intervals_to_exclude", "class": "string", "label": "Exclude Intervals", "optional": true, "help": "If given, GATK will not call variants on these regions. Input must be a string of format \"-L chr:lo-hi\" which can have as many -L arguments as desired", "default": ""},
-    {"name": "intervals_merging", "class": "string", "label": "Interval Merge", "help": "If multiple intervals are given, this controls the rules by which they specify regions. Possible options are: \"UNION\" and \"INTERSECTION\". Selecting union will add all regions while intersection will only take regions contained in all of the specified intervals", "default": "UNION"},
-
-    {"name": "max_interval_size", "class":"int", "label": "Max Interval Size", "default":500, "help": "Intervals larger than this will not be used in indel realignment"},
-    {"name": "min_reads_locus", "class":"int", "label": "Min Reads at Locus", "default":4, "help": "Mimimum reads at a locus to enable using entropy calculation for indel realignment"},
-    {"name": "mismatch_fraction", "class":"float", "label": "Mismatch Fraction", "default":0.0, "help":"Fraction of base qualities needing to mismatch for a position to have high entropy for indel realignment target creator"},
-    {"name": "window_size", "class":"int", "label":"Window Size", "default": 10, "help": "Window size for calculating entropy or SNP clusters"},
-
-
-    {"name": "consensus_model", "class":"string", "label":"Consensus Determination Model", "optional":true, "help": "Determines how to compute the possible alternate consenses in indel realignment. Must be one of the following values: [\"USE_READS\", \"KNOWNS_ONLY\", \"USE_SW\"]"},
-    {"name": "lod_threshold", "class":"float", "label":"LOD Cleaning Threshold", "default":5.0, "help":"LOD threshold above which the cleaner will clean in indel realignment. This is a measure of whether improvement is significant enough to merit realignment. Lower values are recommended in cases of low coverage or looking for indels with low allele frequency"},
-    {"name": "entropy_threshold", "class":"float", "label":"Entropy Threshold", "default":0.15, "help":"Percentage of mismatches at a locus to be considered having high intropy in the indel realigner"},
-    {"name": "max_consensuses", "class":"int", "label":"Max Consensuses", "default":30, "help":"Max alternate consensuses to try (improves performance in deep coverage)"},
-    {"name": "max_insert_size_movement", "class":"int", "label": "Max Insert Movement Size", "default":3000, "help":"Maximum insert size of read pairs that realignment attempted for"},
-    {"name": "max_position_move", "class":"int", "label": "Max Position Move", "default":200, "help":"Maximum positional move in basepairs that a read can be adjusted during realignment"},
-    {"name": "max_reads_consensus", "class":"int", "label": "Max Reads for Consensus", "default":120, "help":"Maximum reads used for finding the alternate consensuses (improves performance in deep coverage)"},
-    {"name": "max_reads_realignment", "class":"int", "label": "Max Reads for Realignment", "default":20000, "help":"Maximum reads allowed at an interval for realignment"},
+    {"name": "intervals_to_process", "group": "Advanced Inputs", "class": "string", "label": "Process Intervals", "optional": true, "help": "If given, GATK will only call variants on these regions. Input must be a string of format \"-L chr:lo-hi\" which can have as many -L arguments as desired", "default": ""},
+    {"name": "intervals_to_exclude", "group": "Advanced Inputs", "class": "string", "label": "Exclude Intervals", "optional": true, "help": "If given, GATK will not call variants on these regions. Input must be a string of format \"-L chr:lo-hi\" which can have as many -L arguments as desired", "default": ""},
+    {"name": "intervals_merging", "group": "Advanced Inputs", "class": "string", "label": "Interval Merge", "help": "If multiple intervals are given, this controls the rules by which they specify regions. Selecting union will add all regions while intersection will only take regions contained in all of the specified intervals", "choices": ["UNION", "INTERSECTION"], "default": "UNION"},
+    
+    {"name": "max_interval_size", "group": "Indel Realignment", "class":"int", "label": "Max Interval Size", "default":500, "help": "Intervals larger than this will not be used in indel realignment"},
+    {"name": "min_reads_locus", "group": "Indel Realignment", "class":"int", "label": "Min Reads at Locus", "default":4, "help": "Mimimum reads at a locus to enable using entropy calculation for indel realignment"},
+    {"name": "mismatch_fraction", "group": "Indel Realignment", "class":"float", "label": "Mismatch Fraction", "default":0.0, "help":"Fraction of base qualities needing to mismatch for a position to have high entropy for indel realignment target creator"},
+    {"name": "window_size", "group": "Indel Realignment", "class":"int", "label":"Window Size", "default": 10, "help": "Window size for calculating entropy or SNP clusters"},
 
 
-    {"name": "solid_recalibration_mode", "class":"string", "label":"SOLiD Recalibration Mode", "optional":true, "help":"Only applies to SOLiD sequencing. How to recalibrate bases in which the reference was inseted. If entered, must be one of the following options: [\"DO_NOTHING\", \"SET_Q_ZERO\", \"SET_Q_ZERO_BASE_N\", \"REMOVE_REF_BIAS\"]"},
-    {"name": "solid_nocall_strategy", "class":"string", "label":"SOLiD No-call Strategy", "default": "PURGE_READ", "help":"Only applies to SOLiD sequencing. Defines behavoir when no-call encountered in color space. If entered, must be one of the following options: [\"THROW_EXCEPTION\", \"LEAVE_READ_UNRECALIBRATED\", \"PURGE_READ\"]"},
-    {"name": "context_size", "class":"int", "label":"Count Covariate Context Size", "optional":true, "help":"Size of the k-mer context used in count covariates"},
-    {"name": "nback", "class": "int", "label": "Count Covariates N-back", "optional":true, "help":"The number of previous bases to look at in HomopolymerCovariate"},
-    {"name": "cycle_covariate", "class":"boolean", "label": "Use Cycle Covariate", "default":true, "help":"Use cycle covariation in the quality recalibration process"},
-    {"name": "dinuc_covariate", "class":"boolean", "label": "Use Dinucleotide Covariate", "default":true, "help":"Use dinucleotide covariation in the quality recalibration process"},
-    {"name": "primer_round_covariate", "class":"boolean", "label": "Use Primer Round Covariate", "default":false, "help":"Use primer round covariation in the quality recalibration process"},
-    {"name": "mapping_quality_covariate", "class":"boolean", "label": "Use Mapping Quality Covariate", "default":false, "help":"Use mapping quality covariation in the quality recalibration process"},
-    {"name": "homopolymer_covariate", "class":"boolean", "label": "Use Homopolymer Covariate", "default":false, "help":"Use homopolymer covariation in the quality recalibration process"},
-    {"name": "gc_content_covariate", "class":"boolean", "label": "Use GC Content Covariate", "default":false, "help":"Use gc content covariation in the quality recalibration process"},
-    {"name": "position_covariate", "class":"boolean", "label": "Use Position Covariate", "default":false, "help":"Use position covariation in the quality recalibration process"},
-    {"name": "minimum_nqs_covariate", "class":"boolean", "label": "Use Minimum NQS Covariate", "default":false, "help":"Use minimum NQS covariation in the quality recalibration process"},
-    {"name": "context_covariate", "class":"boolean", "label": "Use Context Covariate", "default":false, "help":"Use context covariation in the quality recalibration process"},
-    {"name": "preserve_qscore", "class":"int", "label":"Preserve Q-Scores Less Than", "default":5, "helP":"Do not recalibrate quality scores below this threshold. Since many base callers use quality scores below 5 to indicate random or bad bases, it is often unsafe to recalibrate these bases" },
-    {"name": "smoothing", "class":"int", "label":"Smoothing Counts", "optional":true, "help":"Number of imaginary counts to add to each bin in order to smooth out binds with few data points"},
-    {"name": "max_quality", "class":"int", "label":"Maximum Quality Score", "optional":true, "help":"The value at which to cap the quality scores"}
+    {"name": "consensus_model", "group": "Indel Realignment", "class":"string", "label":"Consensus Determination Model", "optional":true, "help": "Determines how to compute the possible alternate consenses in indel realignment.", "choices": ["USE_READS", "KNOWNS_ONLY", "USE_SW"], "default":"USE_READS"},
+    {"name": "lod_threshold", "group": "Indel Realignment", "class":"float", "label":"LOD Cleaning Threshold", "default":5.0, "help":"LOD threshold above which the cleaner will clean in indel realignment. This is a measure of whether improvement is significant enough to merit realignment. Lower values are recommended in cases of low coverage or looking for indels with low allele frequency"},
+    {"name": "entropy_threshold", "group": "Indel Realignment", "class":"float", "label":"Entropy Threshold", "default":0.15, "help":"Percentage of mismatches at a locus to be considered having high intropy in the indel realigner"},
+    {"name": "max_consensuses", "group": "Indel Realignment", "class":"int", "label":"Max Consensuses", "default":30, "help":"Max alternate consensuses to try (improves performance in deep coverage)"},
+    {"name": "max_insert_size_movement", "group": "Indel Realignment", "class":"int", "label": "Max Insert Movement Size", "default":3000, "help":"Maximum insert size of read pairs that realignment attempted for"},
+    {"name": "max_position_move", "group": "Indel Realignment", "class":"int", "label": "Max Position Move", "default":200, "help":"Maximum positional move in basepairs that a read can be adjusted during realignment"},
+    {"name": "max_reads_consensus", "group": "Indel Realignment", "class":"int", "label": "Max Reads for Consensus", "default":120, "help":"Maximum reads used for finding the alternate consensuses (improves performance in deep coverage)"},
+    {"name": "max_reads_realignment", "group": "Indel Realignment", "class":"int", "label": "Max Reads for Realignment", "default":20000, "help":"Maximum reads allowed at an interval for realignment"},
+
+
+    {"name": "solid_recalibration_mode", "group": "Mapping Recalibration", "class":"string", "label":"SOLiD Recalibration Mode", "optional":true, "help":"Only applies to SOLiD sequencing. How to recalibrate bases in which the reference was inseted.", "choices": ["DO_NOTHING", "SET_Q_ZERO", "SET_Q_ZERO_BASE_N", "REMOVE_REF_BIAS"], "default": "SET_Q_ZERO"},
+    {"name": "solid_nocall_strategy", "group": "Mapping Recalibration", "class":"string", "label":"SOLiD No-call Strategy", "default": "PURGE_READ", "help":"Only applies to SOLiD sequencing. Defines behavoir when no-call encountered in color space", "choices": ["THROW_EXCEPTION", "LEAVE_READ_UNRECALIBRTED", "PURGE_READ"]},
+    {"name": "context_size", "group": "Mapping Recalibration", "class":"int", "label":"Count Covariate Context Size", "optional":true, "help":"Size of the k-mer context used in count covariates"},
+    {"name": "nback", "group": "Mapping Recalibration", "class": "int", "label": "Count Covariates N-back", "optional":true, "help":"The number of previous bases to look at in HomopolymerCovariate"},
+    {"name": "cycle_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use Cycle Covariate", "default":true, "help":"Use cycle covariation in the quality recalibration process"},
+    {"name": "dinuc_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use Dinucleotide Covariate", "default":true, "help":"Use dinucleotide covariation in the quality recalibration process"},
+    {"name": "primer_round_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use Primer Round Covariate", "default":false, "help":"Use primer round covariation in the quality recalibration process"},
+    {"name": "mapping_quality_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use Mapping Quality Covariate", "default":false, "help":"Use mapping quality covariation in the quality recalibration process"},
+    {"name": "homopolymer_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use Homopolymer Covariate", "default":false, "help":"Use homopolymer covariation in the quality recalibration process"},
+    {"name": "gc_content_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use GC Content Covariate", "default":false, "help":"Use gc content covariation in the quality recalibration process"},
+    {"name": "position_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use Position Covariate", "default":false, "help":"Use position covariation in the quality recalibration process"},
+    {"name": "minimum_nqs_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use Minimum NQS Covariate", "default":false, "help":"Use minimum NQS covariation in the quality recalibration process"},
+    {"name": "context_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use Context Covariate", "default":false, "help":"Use context covariation in the quality recalibration process"},
+    {"name": "preserve_qscore", "group": "Mapping Recalibration", "class":"int", "label":"Preserve Q-Scores Less Than", "default":5, "helP":"Do not recalibrate quality scores below this threshold. Since many base callers use quality scores below 5 to indicate random or bad bases, it is often unsafe to recalibrate these bases" },
+    {"name": "smoothing", "group": "Mapping Recalibration", "class":"int", "label":"Smoothing Counts", "optional":true, "help":"Number of imaginary counts to add to each bin in order to smooth out binds with few data points"},
+    {"name": "max_quality", "group": "Mapping Recalibration", "class":"int", "label":"Maximum Quality Score", "optional":true, "help":"The value at which to cap the quality scores"}
 
 
   ],
@@ -62,7 +73,7 @@
     "execDepends": [{"name": "openjdk-6-jre-headless"}, {"name":"tabix"}, {"name":"pypy"}],
     "buildDepends": [{"name": "libncurses5-dev"}]
   },
-  "version": "0.0.194",
+  "version": "0.0.195",
   "categories": [
     "Variation calling", "Alignment"
   ],
