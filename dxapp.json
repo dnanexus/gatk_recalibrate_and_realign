@@ -8,7 +8,7 @@
     {"name": "reference", "class": "record", "label":"Reference genome", "help":"The reference genome used to align the mappings", "type": "ContigSet"},
     {"name": "output_name", "class": "string", "label":"Output name", "help":"The name of the resulting Mappings table object (optional; if not provided, the output will be named after the input)", "optional": true},
     
-    {"name": "dbSNP", "class": "file", "label":"dbSNP", "optional":true, "help":"The dbSNP database in vcf.gz format (indexed using bgzip).",
+    {"name": "dbsnp", "class": "file", "label":"dbSNP", "optional":true, "help":"The dbSNP database in vcf.gz format (indexed using bgzip).",
       "suggestions": [{"name": "b37 dbSNP", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/b37/GATK helpers/dbSNP"},
                        {"name": "hg19 dbSNP", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/hg19/GATK helpers/dbSNP"}],
       "patterns": ["*.vcf.gz"]
@@ -73,7 +73,7 @@
     "execDepends": [{"name": "openjdk-6-jre-headless"}, {"name":"tabix"}, {"name":"pypy"}],
     "buildDepends": [{"name": "libncurses5-dev"}]
   },
-  "version": "0.0.195",
+  "version": "0.0.196",
   "categories": [
     "Variation calling", "Alignment"
   ],
