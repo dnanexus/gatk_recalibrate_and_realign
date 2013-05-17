@@ -353,7 +353,6 @@ def mapBestPractices():
     #RealignerTargetCreator
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T RealignerTargetCreator -R ref.fa -I input.bam -o indels.intervals %s" % gatkRegionList
     command += job['input']['interval']
-    knownIndels = ''
 
     # Download the known indels
     knownCommand = ''
@@ -365,11 +364,11 @@ def mapBestPractices():
                 p = subprocess.Popen("tabix -f -p vcf " + knownFileName, stderr=subprocess.PIPE, shell=True)
                 if '[tabix] was bgzip' in p.communicate()[1]:
                     subprocess.check_call("gzip -d " + knownFileName, shell=True)
-                    knownFileName = "indels"+str(i)+".vcf.gz"
+                    knownFileName = "indels"+str(i)+".vcf"
             except subprocess.CalledProcessError:
                 raise dxpy.AppError("An error occurred decompressing known indels. Expected known indels as a gzipped file.")
             knownCommand += " -known " + knownFileName
-        command += knownIndels
+        command += knownCommand
 
     #Find chromosomes
     regionChromosomes = []

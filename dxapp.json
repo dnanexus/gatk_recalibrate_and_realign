@@ -8,16 +8,16 @@
     {"name": "reference", "class": "record", "label":"Reference genome", "help":"The reference genome used to align the mappings", "type": "ContigSet"},
     {"name": "output_name", "class": "string", "label":"Output name", "help":"The name of the resulting Mappings table object (optional; if not provided, the output will be named after the input)", "optional": true},
     
-    {"name": "dbsnp", "class": "file", "label":"dbSNP", "optional":true, "help":"The dbSNP database in vcf.gz format (indexed using bgzip).",
+    {"name": "dbsnp", "class": "file", "label":"dbSNP", "optional":true, "help":"The dbSNP database in VCF format (optionally block-compressed with bgzip).",
       "suggestions": [{"name": "b37 dbSNP", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/b37/GATK helpers/dbSNP"},
                        {"name": "hg19 dbSNP", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/hg19/GATK helpers/dbSNP"}],
-      "patterns": ["*.vcf.gz"]
+      "patterns": ["*dbsnp*.vcf.gz", "*dbsnp*.vcf"]
     },
       
-    {"name": "known_indels", "class": "array:file", "label":"Known Indels", "optional":true, "help":"VCF files (compressed optionally) containing known indels to use in the process of realigning around the sites of known indels.",
+    {"name": "known_indels", "class": "array:file", "label":"Known Indels", "optional":true, "help":"VCF files (optionally block-compressed with bgzip) containing known indels to use in the process of realigning around the sites of known indels.",
       "suggestions": [{"name": "b37 Known Indels", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/b37/GATK helpers/Known Indels"},
                        {"name": "hg19 Known Indels", "project": "project-B406Bq0bQ9jB3GVk65200001", "path":"/hg19/GATK helpers/Known Indels"}],
-      "patterns": ["*.vcf.gz"]
+      "patterns": ["*indels*.vcf.gz", "*indels*.vcf"]
     },
     
     {"name": "reads_per_job", "group": "Advanced Inputs", "class": "int", "label": "Reads per Job", "help": "Controls the degree of parallelism. The number of jobs created to run the program will be the total number of reads divided by this", "default": 25000000},
@@ -73,7 +73,7 @@
     "execDepends": [{"name": "openjdk-6-jre-headless"}, {"name":"tabix"}, {"name":"pypy"}],
     "buildDepends": [{"name": "libncurses5-dev"}]
   },
-  "version": "0.0.199",
+  "version": "0.0.200",
   "categories": [
     "Variation calling", "Alignment"
   ],
