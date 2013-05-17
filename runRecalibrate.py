@@ -437,7 +437,8 @@ def mapBestPractices():
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -recalFile recalibration.csv -I realigned.bam -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate --standard_covs %s" % gatkRegionList
     command += " -knownSites " + dbsnpFileName
     command += job['input']['interval']
-    command += " --num_threads " + str(cpu_count())
+    if job['input']['parent_input'].get('single_threaded') != True:
+        command += " --num_threads " + str(cpu_count())
 
     if "solid_recalibration_mode" in job['input']['parent_input']:
         command += " --solid_recal_mode " + job['input']['parent_input']['solid_recalibration_mode']

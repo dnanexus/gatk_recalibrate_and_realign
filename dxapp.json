@@ -28,7 +28,7 @@
     {"name": "intervals_to_process", "group": "Advanced Inputs", "class": "string", "label": "Process Intervals", "optional": true, "help": "If given, GATK will only call variants on these regions. Input must be a string of format \"-L chr:lo-hi\" which can have as many -L arguments as desired", "default": ""},
     {"name": "intervals_to_exclude", "group": "Advanced Inputs", "class": "string", "label": "Exclude Intervals", "optional": true, "help": "If given, GATK will not call variants on these regions. Input must be a string of format \"-L chr:lo-hi\" which can have as many -L arguments as desired", "default": ""},
     {"name": "intervals_merging", "group": "Advanced Inputs", "class": "string", "label": "Interval Merge", "help": "If multiple intervals are given, this controls the rules by which they specify regions. Selecting union will add all regions while intersection will only take regions contained in all of the specified intervals", "choices": ["UNION", "INTERSECTION"], "default": "UNION"},
-    
+    {"name": "single_threaded", "group": "Advanced Inputs", "class": "boolean", "label": "Run on a single thread?", "optional": true, "help": "If chosen, GATK will not be launched in a multi-threaded way. Results will thus be deterministic and reproducible, at the expense of running time."},
     {"name": "max_interval_size", "group": "Indel Realignment", "class":"int", "label": "Max Interval Size", "default":500, "help": "Intervals larger than this will not be used in indel realignment"},
     {"name": "min_reads_locus", "group": "Indel Realignment", "class":"int", "label": "Min Reads at Locus", "default":4, "help": "Mimimum reads at a locus to enable using entropy calculation for indel realignment"},
     {"name": "mismatch_fraction", "group": "Indel Realignment", "class":"float", "label": "Mismatch Fraction", "default":0.0, "help":"Fraction of base qualities needing to mismatch for a position to have high entropy for indel realignment target creator"},
@@ -73,7 +73,7 @@
     "execDepends": [{"name": "openjdk-6-jre-headless"}, {"name":"tabix"}, {"name":"pypy"}],
     "buildDepends": [{"name": "libncurses5-dev"}]
   },
-  "version": "0.0.198",
+  "version": "0.0.199",
   "categories": [
     "Variation calling", "Alignment"
   ],
