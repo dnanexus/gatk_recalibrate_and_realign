@@ -472,12 +472,8 @@ def mapBestPractices():
     #Table Recalibration
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T TableRecalibration -R ref.fa -recalFile recalibration.csv -I realigned.bam -o recalibrated.bam --doNotWriteOriginalQuals %s" % gatkRegionList
     command += job['input']['interval']
-    if "solid_recalibration_mode" in job['input']['parent_input']:
-        if job['input']['parent_input']['solid_recalibration_mode'] != "":
-            command += " --solid_recal_mode " + job['input']['parent_input']['solid_recalibration_mode']
-    if "solid_nocall_strategy" in job['input']['parent_input']:
-        if job['input']['parent_input']['solid_nocall_strategy'] != "":
-            command += " --solid_nocall_strategy " + job['input']['parent_input']['solid_nocall_strategy']
+    command += " --solid_recal_mode " + job['input']['parent_input']['solid_recalibration_mode']
+    command += " --solid_nocall_strategy " + job['input']['parent_input']['solid_nocall_strategy']
     if 'context_size' in job['input']['parent_input']:
         command += " --context_size " + str(job['input']['parent_input']['context_size'])
     if 'nback' in job['input']['parent_input']:
