@@ -440,17 +440,9 @@ def mapBestPractices():
     command += " --num_threads " + str(cpu_count())
 
     if "solid_recalibration_mode" in job['input']['parent_input']:
-        if job['input']['parent_input']['solid_recalibration_mode'] != "":
-            if job['input']['parent_input']['solid_recalibration_mode'] == "THROW_EXCEPTION" or job['input']['parent_input']['solid_recalibration_mode'] == "LEAVE_READ_UNRECALIBRATED" or job['input']['parent_input']['solid_recalibration_mode'] == "PURGE_READ":
-                command += " --solid_recal_mode " + job['input']['parent_input']['solid_recalibration_mode']
-            else:
-                raise dxpy.AppError("The option \"SOLiD Recalibration Mode\" must be either blank or one of [\"THROW_EXCEPTION\", \"LEAVE_READ_UNRECALIBRATED\", or \"PURGE_READ\"], found " + job['input']['parent_input']['solid_recalibration_mode'] + " instead.")
+        command += " --solid_recal_mode " + job['input']['parent_input']['solid_recalibration_mode']
     if "solid_nocall_strategy" in job['input']['parent_input']:
-        if job['input']['parent_input']['solid_nocall_strategy'] != "":
-            if job['input']['parent_input']['solid_nocall_strategy'] == "THROW_EXCEPTION" or job['input']['parent_input']['solid_nocall_strategy'] == "LEAVE_READ_UNRECALIBRATED" or job['input']['parent_input']['solid_nocall_strategy'] == "PURGE_READ":
-                command += " --solid_nocall_strategy " + job['input']['parent_input']['solid_nocall_strategy']
-            else:
-                raise dxpy.AppError("The option \"SOLiD No-call Strategy\" must be either blank or one of [\"THROW_EXCEPTION\", \"LEAVE_READ_UNRECALIBRATED\", or \"PURGE_READ\"], found " + job['input']['parent_input']['solid_nocall_strategy'] + " instead.")
+        command += " --solid_nocall_strategy " + job['input']['parent_input']['solid_nocall_strategy']
     if 'context_size' in job['input']['parent_input']:
         command += " --context_size " + str(job['input']['parent_input']['context_size'])
     if 'nback' in job['input']['parent_input']:
