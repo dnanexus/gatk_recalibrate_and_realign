@@ -363,8 +363,9 @@ def mapBestPractices():
             try:
                 p = subprocess.Popen("tabix -f -p vcf " + knownFileName, stderr=subprocess.PIPE, shell=True)
                 if '[tabix] was bgzip' in p.communicate()[1]:
-                    subprocess.check_call("gzip -d " + knownFileName, shell=True)
-                    knownFileName = "indels"+str(i)+".vcf"
+                    newName = "indels" + str(i) + ".vcf"
+                    subprocess.check_call("zcat -f " + knownFileName + " > " + newName + " && rm -f " + knownFileName, shell=True)
+                    knownFileName = newName
             except subprocess.CalledProcessError:
                 raise dxpy.AppError("An error occurred decompressing known indels. Expected known indels as a gzipped file.")
             knownCommand += " -known " + knownFileName
