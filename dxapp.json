@@ -46,7 +46,7 @@
 
 
     {"name": "solid_recalibration_mode", "group": "Mapping Recalibration", "class":"string", "label":"SOLiD Recalibration Mode", "optional":true, "help":"Only applies to SOLiD sequencing. How to recalibrate bases in which the reference was inseted.", "choices": ["DO_NOTHING", "SET_Q_ZERO", "SET_Q_ZERO_BASE_N", "REMOVE_REF_BIAS"], "default": "SET_Q_ZERO"},
-    {"name": "solid_nocall_strategy", "group": "Mapping Recalibration", "class":"string", "label":"SOLiD No-call Strategy", "default": "PURGE_READ", "help":"Only applies to SOLiD sequencing. Defines behavoir when no-call encountered in color space", "choices": ["THROW_EXCEPTION", "LEAVE_READ_UNRECALIBRTED", "PURGE_READ"]},
+    {"name": "solid_nocall_strategy", "group": "Mapping Recalibration", "class":"string", "label":"SOLiD No-call Strategy", "default": "PURGE_READ", "help":"Only applies to SOLiD sequencing. Defines behavoir when no-call encountered in color space", "choices": ["THROW_EXCEPTION", "LEAVE_READ_UNRECALIBRATED", "PURGE_READ"]},
     {"name": "context_size", "group": "Mapping Recalibration", "class":"int", "label":"Count Covariate Context Size", "optional":true, "help":"Size of the k-mer context used in count covariates"},
     {"name": "nback", "group": "Mapping Recalibration", "class": "int", "label": "Count Covariates N-back", "optional":true, "help":"The number of previous bases to look at in HomopolymerCovariate"},
     {"name": "cycle_covariate", "group": "Mapping Recalibration", "class":"boolean", "label": "Use Cycle Covariate", "default":true, "help":"Use cycle covariation in the quality recalibration process"},
@@ -73,7 +73,7 @@
     "execDepends": [{"name": "openjdk-6-jre-headless"}, {"name":"tabix"}, {"name":"pypy"}],
     "buildDepends": [{"name": "libncurses5-dev"}]
   },
-  "version": "0.0.202",
+  "version": "0.0.203",
   "categories": [
     "Variation calling", "Alignment"
   ],
