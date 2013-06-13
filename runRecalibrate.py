@@ -363,11 +363,9 @@ def mapBestPractices():
             try:
                 p = subprocess.Popen("tabix -f -p vcf " + knownFileName, stderr=subprocess.PIPE, shell=True)
                 if '[tabix] was bgzip' in p.communicate()[1]:
-                    newName = "indels" + str(i) + ".vcf"
-                    subprocess.check_call("zcat -f " + knownFileName + " > " + newName + " && rm -f " + knownFileName, shell=True)
-                    knownFileName = newName
+                    subprocess.check_call("zcat -f " + knownFileName + " | bgzip -c >temp.vcf.gz && mv -f temp.vcf.gz " + knownFileName + " && tabix -p vcf " + knownFileName, shell=True)
             except subprocess.CalledProcessError:
-                raise dxpy.AppError("An error occurred decompressing known indels. Expected known indels as a gzipped file.")
+                raise dxpy.AppError("An error occurred while trying to index the provided known indels with tabix. Please make sure the provided known indels are valid VCF files.")
             knownCommand += " -known " + knownFileName
         command += knownCommand
 
@@ -426,10 +424,9 @@ def mapBestPractices():
     try:
         p = subprocess.Popen("tabix -f -p vcf dbsnp.vcf.gz", stderr=subprocess.PIPE, shell=True)
         if '[tabix] was bgzip' in p.communicate()[1]:
-            subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
-            dbsnpFileName = 'dbsnp.vcf'
+            subprocess.check_call("zcat -f dbsnp.vcf.gz | bgzip -c >temp.vcf.gz && mv -f temp.vcf.gz dbsnp.vcf.gz && tabix -p vcf dbsnp.vcf.gz", shell=True)
     except subprocess.CalledProcessError:
-        raise dxpy.AppError("An error occurred decompressing dbSNP. Expected dbSNP as a gzipped file.")
+        raise dxpy.AppError("An error occurred while trying to index the provided dbSNP file with tabix. Please make sure the provided dbSNP file is a valid VCF file.")
 
     #subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
 
