@@ -73,9 +73,9 @@
     "execDepends": [{"name": "openjdk-6-jre-headless"}, {"name":"tabix"}, {"name":"pypy"}],
     "buildDepends": [{"name": "libncurses5-dev"}]
   },
-  "version": "0.0.204",
+  "version": "0.0.205",
   "categories": [
-    "Variation calling", "Alignment"
+    "Variation Calling", "Read Mapping"
   ],
   "details":{
     "upstreamAuthor": "Broad Institute",
