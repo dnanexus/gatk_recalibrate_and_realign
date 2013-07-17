@@ -142,6 +142,17 @@ def main():
     job['output'] = {'recalibrated_mappings': {'job': reduceJobId, 'field': 'recalibrated_table'}}
     #job['output'] = {'recalibrated_mappings': dxpy.dxlink(recalibratedTable.get_id())}
 
+def runAndCatchGATKError(command, shell=True):
+    # Added to capture any errors outputted by GATK
+    try:
+        subprocess.check_output(command, stderr=subprocess.STDOUT, shell=shell)
+    except subprocess.CalledProcessError, e:
+        print e 
+        error = '\n'.join([l for l in e.output.splitlines() if l.startswith('#####')])
+        if error: 
+            raise dxpy.AppError(error)
+        else: 
+            raise dxpy.AppInternalError(e)     
 
 def reduceBestPractices():
     startTime = time.time()
@@ -196,7 +207,7 @@ def mapInterchromosome():
             if checkSamContainsRead("input."+str(i)+".sam"):
                 command += " INPUT=input."+str(i)+".sam"
                 readsPresent = True
-        subprocess.check_call(command, shell=True)
+        runAndCatchGATKError(command, shell=True)
     if readsPresent:
         subprocess.check_call("samtools view -bS output.sam > output.bam", shell=True)
         fileId = dxpy.upload_local_file("output.bam").get_id()
@@ -221,8 +232,8 @@ def reduceInterchromosome():
         for x in job['input']['file_list']:
             dxpy.DXFile(x).close()
     else:
-        subprocess.check_call(command, shell=True)
-        subprocess.check_call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=merge.bam O=dedup.bam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT REMOVE_DUPLICATES=%s" % job['input']['discard_duplicates'], shell=True)
+        runAndCatchGATKError(command, shell=True)
+        runAndCatchGATKError("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=merge.bam O=dedup.bam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT REMOVE_DUPLICATES=%s" % job['input']['discard_duplicates'], shell=True)
         #subprocess.check_call("samtools view -bS dedup.sam > dedup.bam", shell=True)
         subprocess.check_call("samtools index dedup.bam", shell=True)
         for i in range(len(job['input']['interval'])):
@@ -302,8 +313,8 @@ def mapBestPractices():
                 readsPresent = True
 
     if readsPresent:
-        subprocess.check_call(command, shell=True)
-        subprocess.check_call("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=input.sam O=dedup.sam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT REMOVE_DUPLICATES=%s" % job["input"]["discard_duplicates"], shell=True)
+        runAndCatchGATKError(command, shell=True)
+        runAndCatchGATKError("java -Xmx4g net.sf.picard.sam.MarkDuplicates I=input.sam O=dedup.sam METRICS_FILE=metrics.txt ASSUME_SORTED=true VALIDATION_STRINGENCY=SILENT REMOVE_DUPLICATES=%s" % job["input"]["discard_duplicates"], shell=True)
         startTime = time.time()
         subprocess.check_call("samtools view -bS dedup.sam > dedup.bam", shell=True)
         print "Conversion to BAM completed in " + str(int((time.time()-startTime)/60)) + " minutes"
@@ -339,7 +350,7 @@ def mapBestPractices():
     if job['input']['file_list'] == []:
         subprocess.check_call("mv dedup.bam input.bam", shell=True)
     elif job['input']['file_list'][jobNumber] != '':
-        subprocess.check_call("java -Xmx4g net.sf.picard.sam.MergeSamFiles SORT_ORDER=coordinate USE_THREADING=true INPUT=dedup.bam INPUT=interchromosomeBam.bam OUTPUT=input.bam VALIDATION_STRINGENCY=SILENT", shell=True)
+        runAndCatchGATKError("java -Xmx4g net.sf.picard.sam.MergeSamFiles SORT_ORDER=coordinate USE_THREADING=true INPUT=dedup.bam INPUT=interchromosomeBam.bam OUTPUT=input.bam VALIDATION_STRINGENCY=SILENT", shell=True)
     else:
         subprocess.check_call("mv dedup.bam input.bam", shell=True)
     startTime = time.time()
@@ -385,8 +396,8 @@ def mapBestPractices():
         command += " --mismatchFraction " + str(job['input']['parent_input']['mismatch_fraction'])
 
     print command
-    subprocess.check_call(command, shell=True)
-
+    runAndCatchGATKError(command, shell=True)
+    
     #Run the IndelRealigner
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T IndelRealigner -R ref.fa -I input.bam -targetIntervals indels.intervals -o realigned.bam %s" % gatkRegionList
     command += job['input']['interval']
@@ -413,7 +424,7 @@ def mapBestPractices():
         command += " --maxReadsForRealignment " + str(job['input']['parent_input']['max_reads_realignment'])
 
     print command
-    subprocess.check_call(command, shell=True)
+    runAndCatchGATKError(command, shell=True)
 
     # Download dbSNP
     startTime = time.time()
@@ -465,7 +476,7 @@ def mapBestPractices():
         command += " -cov ContextCovariate"
 
     print command
-    subprocess.check_call(command, shell=True)
+    runAndCatchGATKError(command, shell=True)
 
     #Table Recalibration
     command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T TableRecalibration -R ref.fa -recalFile recalibration.csv -I realigned.bam -o recalibrated.bam --doNotWriteOriginalQuals %s" % gatkRegionList
@@ -483,7 +494,7 @@ def mapBestPractices():
     if 'max_quality' in job['input']['parent_input']:
         command += " --max_quality_score " + str(job['input']['parent_input']['max_quality'])
     print command
-    subprocess.check_call(command, shell=True)
+    runAndCatchGATKError(command, shell=True)
 
     subprocess.check_call("samtools view -h -o recalibrated.sam recalibrated.bam", shell=True)
 
