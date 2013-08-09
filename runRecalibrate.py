@@ -148,11 +148,11 @@ def runAndCatchGATKError(command, shell=True):
         subprocess.check_output(command, stderr=subprocess.STDOUT, shell=shell)
     except subprocess.CalledProcessError, e:
         print e 
-        error = '\n'.join([l for l in e.output.splitlines() if l.startswith('#####')])
+        error = '\n'.join([l for l in e.output.splitlines() if l.startswith('##### ERROR MESSAGE:')])
         if error: 
-            raise dxpy.AppError(error)
+            raise dxpy.AppError("App failed with GATK error. Please see logs for more information: {err}".format(err=error))
         else: 
-            raise dxpy.AppInternalError(e)     
+            raise dxpy.AppInternalError("App failed with error. Please see logs for more information: {err}".format(err=e))         
 
 def reduceBestPractices():
     startTime = time.time()
@@ -362,7 +362,7 @@ def mapBestPractices():
     subprocess.check_call("dx-contigset-to-fasta %s ref.fa" % (job['input']['reference']), shell=True)
 
     #RealignerTargetCreator
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T RealignerTargetCreator -R ref.fa -I input.bam -o indels.intervals %s" % gatkRegionList
+    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T RealignerTargetCreator -R ref.fa -I input.bam -o indels.intervals %s -rf BadCigar" % gatkRegionList
     command += job['input']['interval']
 
     # Download the known indels
@@ -399,7 +399,7 @@ def mapBestPractices():
     runAndCatchGATKError(command, shell=True)
     
     #Run the IndelRealigner
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T IndelRealigner -R ref.fa -I input.bam -targetIntervals indels.intervals -o realigned.bam %s" % gatkRegionList
+    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T IndelRealigner -R ref.fa -I input.bam -targetIntervals indels.intervals -o realigned.bam %s -rf BadCigar" % gatkRegionList
     command += job['input']['interval']
     command += knownCommand
     if "consensus_model" in job['input']['parent_input']:
@@ -442,7 +442,7 @@ def mapBestPractices():
     #subprocess.check_call("gzip -d dbsnp.vcf.gz", shell=True)
 
     #Count Covariates
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -recalFile recalibration.csv -I realigned.bam -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate --standard_covs %s" % gatkRegionList
+    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T CountCovariates -R ref.fa -recalFile recalibration.csv -I realigned.bam -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov DinucCovariate --standard_covs %s -rf BadCigar" % gatkRegionList
     command += " -knownSites " + dbsnpFileName
     command += job['input']['interval']
     if job['input']['parent_input'].get('single_threaded') != True:
@@ -479,7 +479,7 @@ def mapBestPractices():
     runAndCatchGATKError(command, shell=True)
 
     #Table Recalibration
-    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T TableRecalibration -R ref.fa -recalFile recalibration.csv -I realigned.bam -o recalibrated.bam --doNotWriteOriginalQuals %s" % gatkRegionList
+    command = "java -Xmx4g org.broadinstitute.sting.gatk.CommandLineGATK -T TableRecalibration -R ref.fa -recalFile recalibration.csv -I realigned.bam -o recalibrated.bam --doNotWriteOriginalQuals %s -rf BadCigar" % gatkRegionList
     command += job['input']['interval']
     command += " --solid_recal_mode " + job['input']['parent_input']['solid_recalibration_mode']
     command += " --solid_nocall_strategy " + job['input']['parent_input']['solid_nocall_strategy']
