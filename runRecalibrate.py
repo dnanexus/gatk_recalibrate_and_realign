@@ -277,7 +277,7 @@ def mapBestPractices(**job__inputs):
 
     jobNumber = job_inputs['job_number']
 
-    if job_inputs['intervals_merging'] != "INTERSECTION" and ("intervals_to_include" in job_inputs and job_inputs.get("intervals_to_include") != "":
+    if job_inputs['intervals_merging'] != "INTERSECTION" and ("intervals_to_include" in job_inputs) and job_inputs.get("intervals_to_include") != "":
         job_inputs['interval'] = splitUserInputRegions(job_inputs['interval'], job_inputs['intervals_to_include'], "-L")
         if job_inputs['interval'] == '':
             output['ok'] = True
