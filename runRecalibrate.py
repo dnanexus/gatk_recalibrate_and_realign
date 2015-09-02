@@ -269,7 +269,7 @@ def reduceInterchromosome(**job_inputs):
     return output
 
 @dxpy.entry_point('mapBestPractices')
-def mapBestPractices(**job__inputs):
+def mapBestPractices(**job_inputs):
     os.environ['CLASSPATH'] = '/opt/jar/MarkDuplicates.jar:/opt/jar/SamFormatConverter.jar:/opt/jar/SortSam.jar:/opt/jar/AddOrReplaceReadGroups.jar:/opt/jar/MergeSamFiles.jar:/opt/jar/GenomeAnalysisTK.jar:/opt/jar/AddOrReplaceReadGroups.jar'
     output = {}
 
